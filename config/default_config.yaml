@@ -1,0 +1,36 @@
+# Candor simulation default configuration.
+
+model_params:
+  temperature: 0.7
+  top_p: 0.95
+  sonnet_model_version: "claude-sonnet-4-20250514"
+  haiku_model_version: "claude-haiku-4-5-20251001"
+
+context_params:
+  compression_frequency: 5       # Compress history every N rounds
+  recent_history_window: 3       # Keep raw events from the last N rounds
+  max_context_tokens: 150000
+
+simulation_structure:
+  turn_structure: "sequential"
+  agent_action_order:
+    - "job_seeker"
+    - "recruiter"
+    - "hiring_manager"
+  board_visibility: "full"
+  reflection_frequency: 3        # Agents reflect every N rounds
+  interview_turn_floor: 6
+  interview_turn_ceiling: 12
+
+market_params:
+  seeker_to_opening_ratio: 3.0
+  ghost_job_percentage: 0.15
+  rejection_specificity: "low"   # How much detail rejections include
+  new_postings_per_round: 2
+  posting_expiry_rounds: 10
+
+scale_params:
+  num_seekers: 10
+  num_companies: 5
+  num_postings: 15
+  total_rounds: 20
