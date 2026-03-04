@@ -36,6 +36,8 @@ class CompanyProfile(BaseModel):
             at seeding. It is a fixed property that tells the engine
             how predictable this company's response times are. Must be
             less than base_response_delay to avoid negative delays.
+        rejection_specificity: How much detail companies give when
+            rejecting candidates.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -53,6 +55,7 @@ class CompanyProfile(BaseModel):
     responsiveness_pattern: Literal["fast", "slow", "unpredictable", "ghosts"]
     base_response_delay: int = Field(ge=1)
     response_delay_variance: int = Field(ge=0)
+    rejection_specificity: Literal["high", "moderate", "low"]
 
     @model_validator(mode="after")
     def validate_delay_variance(self) -> "CompanyProfile":

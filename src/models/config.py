@@ -48,8 +48,6 @@ class RunConfig(BaseModel):
             prompts to shape behavior.
         ghost_job_percentage: Percentage of postings seeded as ghost
             jobs that never advance candidates.
-        rejection_specificity: How much detail companies give when
-            rejecting candidates.
         new_postings_per_round: How many new jobs appear on the board
             each round.
         posting_expiry_rounds: How many rounds a posting stays active
@@ -84,7 +82,6 @@ class RunConfig(BaseModel):
     # Market parameters
     market_condition: Literal["employer_favored", "balanced", "employee_favored"]
     ghost_job_percentage: float = Field(ge=0.0, le=1.0)
-    rejection_specificity: Literal["high", "moderate", "low"]
     new_postings_per_round: int = Field(ge=0)
     posting_expiry_rounds: int = Field(gt=0)
 
