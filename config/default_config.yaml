@@ -1,5 +1,3 @@
-# Candor simulation default configuration.
-
 model_params:
   temperature: 0.7
   top_p: 0.95
@@ -23,9 +21,8 @@ simulation_structure:
   interview_turn_ceiling: 12
 
 market_params:
-  seeker_to_opening_ratio: 3.0
+  market_condition: "employer_favored"
   ghost_job_percentage: 0.15
-  rejection_specificity: "low"   # How much detail rejections include
   new_postings_per_round: 2
   posting_expiry_rounds: 10
 

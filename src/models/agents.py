@@ -3,6 +3,7 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator, ConfigDict
+from models.types import AgentType
 
 
 class AgentProfile(BaseModel):
@@ -21,7 +22,7 @@ class AgentProfile(BaseModel):
 
     model_config = ConfigDict(frozen=True)
     id: str
-    agent_type: Literal["job_seeker", "recruiter", "hiring_manager"]
+    agent_type: AgentType
     name: str
     disposition: str
     backstory: str  # Fed into system prompt to anchor persona across rounds
