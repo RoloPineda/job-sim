@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: jobsim-postgres
+    environment:
+      POSTGRES_DB: jobsim
+      POSTGRES_USER: jobsim
+      POSTGRES_PASSWORD: jobsim
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,205 +1,293 @@
-"""Agent profile and state models."""
+"""ORM models for simulation agents using joined-table inheritance."""
 
-from typing import Any, Literal
+import uuid
+from typing import Any
 
-from pydantic import BaseModel, Field, model_validator, ConfigDict
-from models.types import AgentType
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from models.base import Base, UUIDPrimaryKeyMixin
+
+_VALID_AGENT_TYPES = ("job_seeker", "recruiter", "hiring_manager")
+_VALID_SELF_AWARENESS = ("accurate", "overconfident", "underconfident")
+_VALID_COMMUNICATION_ABILITY = ("strong", "average", "weak")
+_VALID_SENIORITIES = ("junior", "mid", "senior", "lead", "staff")
+_VALID_LOCATION_FLEXIBILITY = ("rigid", "moderate", "flexible")
+_VALID_REMOTE_PREFERENCE = (
+    "remote_only", "hybrid", "onsite", "no_preference"
+)
+_VALID_EXPERIENCE_LEVELS = ("junior", "mid", "senior")
+_VALID_TEAM_SITUATIONS = ("understaffed", "stable", "growing", "rebuilding")
+_VALID_MANAGEMENT_STYLES = (
+    "detailed_feedback", "vague", "responsive", "slow", "micromanager"
+)
+_VALID_FEEDBACK_CLARITY = ("clear", "vague", "contradictory")
 
 
-class AgentProfile(BaseModel):
-    """Stable identity and disposition for a simulation agent.
+class Agent(UUIDPrimaryKeyMixin, Base):
+    """Base agent table for joined-table inheritance.
 
-    These attributes are immutable since they don't change over the course of a job search.
+    Shared columns for all agent types. The ``agent_type`` column acts
+    as the polymorphic discriminator. This class is never instantiated
+    directly; use one of the concrete subclasses instead.
 
     Attributes:
-        id: Unique agent identifier.
-        agent_type: The role this agent plays in the simulation.
+        run_id: Simulation run this agent belongs to.
+        agent_type: Discriminator for polymorphic identity.
         name: Display name.
         disposition: Personality traits that shape decision-making.
-        backstory: Background narrative seeded at creation, never modified.
+        backstory: Background narrative seeded at creation.
         location: Where the agent is based.
+        state: Current mutable AgentState as JSONB.
     """
 
-    model_config = ConfigDict(frozen=True)
-    id: str
-    agent_type: AgentType
-    name: str
-    disposition: str
-    backstory: str  # Fed into system prompt to anchor persona across rounds
-    location: str
+    __tablename__ = "agents"
+    __table_args__ = (
+        CheckConstraint(
+            f"agent_type IN {_VALID_AGENT_TYPES!r}",
+            name="ck_agents_agent_type",
+        ),
+    )
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("simulation_runs.id"), nullable=False
+    )
+    agent_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    disposition: Mapped[str] = mapped_column(Text, nullable=False)
+    backstory: Mapped[str] = mapped_column(Text, nullable=False)
+    location: Mapped[str] = mapped_column(String, nullable=False)
+    state: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    __mapper_args__ = {
+        "polymorphic_on": "agent_type",
+    }
 
 
-class JobSeekerProfile(AgentProfile):
-    """A jobseeker's profile including skills, preferences, and traits.
+class JobSeeker(Agent):
+    """Job seeker agent with skills, preferences, and financial state.
 
-    The agent builds its own resume from perceived_skills, work_history,
-    education, and projects. actual_skills is hidden from the agent and
-    used only for post-simulation analysis.
+    ``education_history`` and ``work_history`` are stored as JSONB
+    since they are value objects without independent identity.
 
     Attributes:
-        education_history: Academic background (e.g., HS, BS, MS, PhD).
-        actual_skills: Ground truth skills, never included in agent prompts.
+        education_history: Academic background as a list of dicts.
+        actual_skills: Ground truth skills, hidden from the agent.
+        work_history: Past roles as a list of dicts.
         experience_years: Total years of professional experience.
-        work_history: Past roles with accomplishments for resume building.
         perceived_skills: Skills the agent believes it has.
-        self_awareness: How accurately the agent assesses its own abilities.
+        self_awareness: How accurately the agent assesses itself.
         communication_ability: How effectively the agent communicates.
         target_roles: Role titles the agent is searching for.
         target_seniority: Desired seniority level.
         target_comp_low: Minimum acceptable compensation in dollars.
         target_comp_high: Ideal compensation target in dollars.
         location_flexibility: Willingness to relocate.
-        remote_preference: Preference for remote, hybrid, or onsite work.
+        remote_preference: Preference for remote, hybrid, or onsite.
         savings: Dollar savings that deplete over rounds.
-        monthly_expenses: How much the agent spends per round. Round intervals can represent different timelines
-                        (daily, weekly, monthly) and they are defined in the simulation config.
+        burn_rate: How much the agent spends per round.
     """
 
-    # Identity (treat as immutable)
-    education_history: list[Education]
-    actual_skills: list[str]  # Hidden from agent, used for post-simulation analysis
-    work_history: list[WorkEntry] = Field(min_length=0)
-    experience_years: int = Field(ge=0)
+    __tablename__ = "job_seekers"
+    __table_args__ = (
+        CheckConstraint(
+            f"self_awareness IN {_VALID_SELF_AWARENESS!r}",
+            name="ck_job_seekers_self_awareness",
+        ),
+        CheckConstraint(
+            f"communication_ability IN {_VALID_COMMUNICATION_ABILITY!r}",
+            name="ck_job_seekers_communication_ability",
+        ),
+        CheckConstraint(
+            f"target_seniority IN {_VALID_SENIORITIES!r}",
+            name="ck_job_seekers_target_seniority",
+        ),
+        CheckConstraint(
+            f"location_flexibility IN {_VALID_LOCATION_FLEXIBILITY!r}",
+            name="ck_job_seekers_location_flexibility",
+        ),
+        CheckConstraint(
+            f"remote_preference IN {_VALID_REMOTE_PREFERENCE!r}",
+            name="ck_job_seekers_remote_preference",
+        ),
+        CheckConstraint(
+            "experience_years >= 0",
+            name="ck_job_seekers_experience_years",
+        ),
+        CheckConstraint(
+            "target_comp_low >= 0",
+            name="ck_job_seekers_target_comp_low",
+        ),
+        CheckConstraint(
+            "target_comp_high >= 0",
+            name="ck_job_seekers_target_comp_high",
+        ),
+        CheckConstraint(
+            "target_comp_low <= target_comp_high",
+            name="ck_job_seekers_comp_range",
+        ),
+        CheckConstraint(
+            "savings >= 0",
+            name="ck_job_seekers_savings",
+        ),
+        CheckConstraint(
+            "burn_rate > 0",
+            name="ck_job_seekers_burn_rate",
+        ),
+    )
 
-    # self-perception (treat as immutable)
-    perceived_skills: list[str]
-    self_awareness: Literal["accurate", "overconfident", "underconfident"]
-    communication_ability: Literal["strong", "average", "weak"]
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("agents.id"), primary_key=True
+    )
+    education_history: Mapped[list[Any]] = mapped_column(
+        JSONB, nullable=False
+    )
+    actual_skills: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False
+    )
+    work_history: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
+    experience_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    perceived_skills: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False
+    )
+    self_awareness: Mapped[str] = mapped_column(String(20), nullable=False)
+    communication_ability: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )
+    target_roles: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False
+    )
+    target_seniority: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_comp_low: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_comp_high: Mapped[int] = mapped_column(Integer, nullable=False)
+    location_flexibility: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )
+    remote_preference: Mapped[str] = mapped_column(String(20), nullable=False)
+    savings: Mapped[int] = mapped_column(Integer, nullable=False)
+    burn_rate: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # Preferences (mutable)
-    target_roles: list[str] = Field(min_length=1)
-    target_seniority: Literal["junior", "mid", "senior", "lead", "staff"]
-    target_comp_low: int = Field(ge=0)
-    target_comp_high: int = Field(ge=0)
-    location_flexibility: Literal["rigid", "moderate", "flexible"]
-    remote_preference: Literal["remote_only", "hybrid", "onsite", "no_preference"]
-
-    # Financial (mutable)
-    savings: int = Field(ge=0)  # Depletes over rounds, creating behavioral pressure
-    burn_rate: int = Field(gt=0)  # gt=0 prevents division by zero
+    __mapper_args__ = {"polymorphic_identity": "job_seeker"}
 
 
+class Recruiter(Agent):
+    """Recruiter agent linked to a company.
 
-    @model_validator(mode="after")
-    def validate_comp_range(self) -> "JobSeekerProfile":
-        """Ensure target_comp_low does not exceed target_comp_high."""
-        if self.target_comp_low > self.target_comp_high:
-            raise ValueError(
-                f"target_comp_low ({self.target_comp_low}) must not exceed "
-                f"target_comp_high ({self.target_comp_high})"
-            )
-        return self
-
-
-class RecruiterProfile(AgentProfile):
-    """Profile for a recruiter agent.
-
-    Represents a recruiter's company assignment, scope of responsibilities,
-    and capability level. The recruiter serves as the middleman between
-    jobseekers and hiring managers, screening candidates and managing
-    communication between both sides.
+    Posting assignments are modeled as a ``recruiter_id`` FK on
+    ``job_postings``. Hiring manager associations are derived through
+    shared postings rather than stored directly.
 
     Attributes:
         company_id: The company this recruiter works for.
-        assigned_posting_ids: Job postings this recruiter is responsible for.
-        hiring_manager_ids: Hiring managers this recruiter works with.
         experience_level: General recruiter competence level.
-        current_workload: Number of open roles currently being managed.
+        current_workload: Number of open roles currently managed.
+        company: The company this recruiter belongs to.
+        assigned_postings: Job postings assigned to this recruiter.
     """
 
-    company_id: str
-    assigned_posting_ids: list[str]
-    hiring_manager_ids: list[str]
-    experience_level: Literal["junior", "mid", "senior"]
-    current_workload: int = Field(ge=0)
+    __tablename__ = "recruiters"
+    __table_args__ = (
+        CheckConstraint(
+            f"experience_level IN {_VALID_EXPERIENCE_LEVELS!r}",
+            name="ck_recruiters_experience_level",
+        ),
+        CheckConstraint(
+            "current_workload >= 0",
+            name="ck_recruiters_current_workload",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("agents.id"), primary_key=True
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=False
+    )
+    experience_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    current_workload: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    company: Mapped["Company"] = relationship(back_populates="recruiters")
+    assigned_postings: Mapped[list["JobPosting"]] = relationship(
+        back_populates="recruiter",
+        foreign_keys="JobPosting.recruiter_id",
+    )
+
+    __mapper_args__ = {"polymorphic_identity": "recruiter"}
 
 
-class HiringManagerProfile(AgentProfile):
-    """Profile for a hiring manager agent.
-
-    Represents a hiring manager's team context, interview style, and
-    decision-making tendencies. The hiring manager is the final
-    decision-maker on candidates, setting the bar and deciding on offers.
+class HiringManager(Agent):
+    """Hiring manager agent linked to a company.
 
     Attributes:
         company_id: The company this hiring manager belongs to.
         team_size: Current size of the hiring manager's team.
         team_situation: State of the team affecting hiring urgency.
-        management_style: How the manager interacts with candidates
-            and recruiters.
-        technical_bar: Freeform description of what the manager values
-            in candidates.
-        interview_capacity_per_round: Maximum interviews the manager
-            can conduct per round.
-        past_hiring_description: Context about previous hires and
-            preferences that may reveal implicit biases.
+        management_style: How the manager interacts with candidates.
+        technical_bar: What the manager values in candidates.
+        interview_capacity_per_round: Max interviews per round.
+        past_hiring_description: Context about previous hires.
         feedback_clarity: How clearly the manager communicates
-            expectations to recruiters.
+            expectations.
+        company: The company this hiring manager belongs to.
+        managed_postings: Job postings this manager is responsible for.
     """
 
-    company_id: str
-    team_size: int = Field(ge=0)
-    team_situation: Literal["understaffed", "stable", "growing", "rebuilding"]
-    management_style: Literal[
-        "detailed_feedback", "vague", "responsive", "slow", "micromanager"
-    ]
-    technical_bar: str
-    interview_capacity_per_round: int = Field(ge=0)
-    past_hiring_description: str
-    feedback_clarity: Literal["clear", "vague", "contradictory"]
+    __tablename__ = "hiring_managers"
+    __table_args__ = (
+        CheckConstraint(
+            f"team_situation IN {_VALID_TEAM_SITUATIONS!r}",
+            name="ck_hiring_managers_team_situation",
+        ),
+        CheckConstraint(
+            f"management_style IN {_VALID_MANAGEMENT_STYLES!r}",
+            name="ck_hiring_managers_management_style",
+        ),
+        CheckConstraint(
+            f"feedback_clarity IN {_VALID_FEEDBACK_CLARITY!r}",
+            name="ck_hiring_managers_feedback_clarity",
+        ),
+        CheckConstraint(
+            "team_size >= 0",
+            name="ck_hiring_managers_team_size",
+        ),
+        CheckConstraint(
+            "interview_capacity_per_round >= 0",
+            name="ck_hiring_managers_interview_capacity",
+        ),
+    )
 
-class Education(BaseModel):
-    """A single educational credential.
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("agents.id"), primary_key=True
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("companies.id"), nullable=False
+    )
+    team_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_situation: Mapped[str] = mapped_column(String(20), nullable=False)
+    management_style: Mapped[str] = mapped_column(String(20), nullable=False)
+    technical_bar: Mapped[str] = mapped_column(Text, nullable=False)
+    interview_capacity_per_round: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    past_hiring_description: Mapped[str] = mapped_column(
+        Text, nullable=False
+    )
+    feedback_clarity: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    Attributes:
-        school: Name of the institution.
-        degree: Degree earned or expected (e.g., BS, MS, PhD).
-        year: Graduation year or expected graduation year.
-    """
+    company: Mapped["Company"] = relationship(
+        back_populates="hiring_managers"
+    )
+    managed_postings: Mapped[list["JobPosting"]] = relationship(
+        back_populates="hiring_manager",
+        foreign_keys="JobPosting.hiring_manager_id",
+    )
 
-    model_config = ConfigDict(frozen=True)
-
-    school: str
-    degree: str
-    year: int
-
-
-class WorkEntry(BaseModel):
-    """A single entry in a jobseeker's work history.
-
-    Attributes:
-        company: Name of the employer.
-        title: Job title held.
-        start_year: Year the role began.
-        start_month: Month the role began (1-12).
-        end_year: Year the role ended, or None if current.
-        end_month: Month the role ended (1-12), or None if current.
-        bullets: Accomplishment descriptions used for resume building.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    company: str
-    title: str
-    # Separate year/month fields instead of date strings to ensure
-    # consistent output when seeding with LLMs.
-    start_year: int
-    start_month: int = Field(ge=1, le=12)
-    end_year: int | None = None
-    end_month: int | None = Field(default=None, ge=1, le=12)
-    bullets: tuple[str, ...]
-
-class AgentState(BaseModel):
-    """Mutable state that evolves each round.
-
-    Serialized to JSON for persistence. Stored both as current state on
-    the agent and as historical snapshots for the observability timeline.
-    """
-
-    round_number: int = 0
-    compressed_history: str = ""
-    recent_events: list[dict[str, Any]] = []
-    current_pipeline: list[dict[str, Any]] = []
-    current_resume: str | None = None
-    metrics: dict[str, Any] = {}
-    last_reflection: str | None = None
+    __mapper_args__ = {"polymorphic_identity": "hiring_manager"}

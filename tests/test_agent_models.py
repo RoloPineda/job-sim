@@ -1,9 +1,9 @@
-"""Tests for agent profile and state models."""
+"""Tests for agent profile and state schemas."""
 
 import pytest
 from pydantic import ValidationError
 
-from src.models.agents import (
+from src.schemas.agents import (
     Education,
     JobSeekerProfile,
     WorkEntry,
@@ -99,7 +99,7 @@ class TestCompRangeValidator:
 
 
 class TestModuleWiring:
-    """Verify that models referencing forward-declared types construct properly."""
+    """Verify that schemas referencing forward-declared types construct properly."""
 
     def test_job_seeker_construction(self, education, work_entry):
         """JobSeekerProfile resolves Education and WorkEntry references."""
