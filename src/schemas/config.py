@@ -2,7 +2,7 @@
 
 Stored once at the start of each run to make runs reproducible and
 comparable. For now this config assumes Claude only. Might extend to
-other models later.
+other schemas later.
 """
 
 from typing import Literal

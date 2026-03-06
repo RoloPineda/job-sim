@@ -1,6 +1,6 @@
-"""Transactional record models for the Candor simulation.
+"""Transactional record schemas for the Candor simulation.
 
-These models capture events, interactions, and state changes that occur
+These schemas capture events, interactions, and state changes that occur
 during a simulation run. All records are append-only unless explicitly
 noted as mutable.
 """
@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from models.types import AgentType
+from schemas.types import AgentType
 
 
 class ApplicationRecord(BaseModel):

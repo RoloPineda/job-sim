@@ -1,9 +1,9 @@
-"""Tests for simulation run configuration models."""
+"""Tests for simulation run configuration schemas."""
 
 import pytest
 from pydantic import ValidationError
 
-from src.models.config import RunConfig
+from src.schemas.config import RunConfig
 
 
 def _make_config(**overrides):

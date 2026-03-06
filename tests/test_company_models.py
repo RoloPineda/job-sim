@@ -1,9 +1,9 @@
-"""Tests for company and job posting models."""
+"""Tests for company and job posting schemas."""
 
 import pytest
 from pydantic import ValidationError
 
-from src.models.company import CompanyProfile
+from src.schemas.company import CompanyProfile
 
 
 def _make_company(**overrides):

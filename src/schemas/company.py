@@ -1,4 +1,4 @@
-"""Company and job posting models"""
+"""Company and job posting schemas"""
 
 from typing import Literal
 

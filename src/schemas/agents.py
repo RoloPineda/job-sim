@@ -1,9 +1,9 @@
-"""Agent profile and state models."""
+"""Agent profile and state schemas."""
 
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator, ConfigDict
-from models.types import AgentType
+from schemas.types import AgentType
 
 
 class AgentProfile(BaseModel):
