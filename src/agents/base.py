@@ -124,9 +124,9 @@ class BaseAgent(ABC):
         """Produce a structured assessment after an interaction."""
 
     async def run_turn(
-            self,
-            round_number: int,
-            notifications: list[str] | None = None,
+        self,
+        round_number: int,
+        notifications: list[str] | None = None,
     ) -> TurnResult:
         """Execute this agent's turn within a round.
 
@@ -172,12 +172,14 @@ class BaseAgent(ABC):
             # Serialize the full response (text + tool_use blocks) back
             # into the conversation so the model sees its own prior
             # output on the next loop iteration.
-            messages.append({
-                "role": "assistant",
-                "content": [
-                    b.model_dump(exclude_none=True) for b in response.content
-                ],
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": [
+                        b.model_dump(exclude_none=True) for b in response.content
+                    ],
+                }
+            )
 
             tool_results = await self._execute_tool_calls(tool_use_blocks, result)
 
@@ -195,12 +197,12 @@ class BaseAgent(ABC):
         return result
 
     async def _try_api_call(
-            self,
-            system: str,
-            messages: list[dict[str, Any]],
-            tools: list[dict[str, Any]] | None,
-            model: str,
-            result: TurnResult,
+        self,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        model: str,
+        result: TurnResult,
     ) -> Message | None:
         """Attempt an API call, returning None if it fails after retries.
 
@@ -227,9 +229,7 @@ class BaseAgent(ABC):
             )
             return None
 
-    def _track_usage(
-            self, response: Message, model: str, result: TurnResult
-    ) -> None:
+    def _track_usage(self, response: Message, model: str, result: TurnResult) -> None:
         """Accumulate token counts and cost from an API response.
 
         Args:
@@ -246,9 +246,7 @@ class BaseAgent(ABC):
             response.usage.output_tokens,
         )
 
-    def _extract_tool_blocks(
-            self, response: Message
-    ) -> list[ToolUseBlock] | None:
+    def _extract_tool_blocks(self, response: Message) -> list[ToolUseBlock] | None:
         """Extract tool-use blocks from an API response.
 
         Returns None if the response is empty or contains no tool
@@ -267,9 +265,7 @@ class BaseAgent(ABC):
             )
             return None
 
-        tool_use_blocks = [
-            b for b in response.content if isinstance(b, ToolUseBlock)
-        ]
+        tool_use_blocks = [b for b in response.content if isinstance(b, ToolUseBlock)]
 
         if not tool_use_blocks:
             return None
@@ -277,9 +273,9 @@ class BaseAgent(ABC):
         return tool_use_blocks
 
     async def _execute_tool_calls(
-            self,
-            blocks: list[ToolUseBlock],
-            result: TurnResult,
+        self,
+        blocks: list[ToolUseBlock],
+        result: TurnResult,
     ) -> list[dict[str, Any]]:
         """Execute tool calls and collect results.
 
@@ -298,14 +294,14 @@ class BaseAgent(ABC):
         for block in blocks:
             result.tool_calls_made += 1
             try:
-                tool_output = await self.handle_tool_call(
-                    block.name, block.input
+                tool_output = await self.handle_tool_call(block.name, block.input)
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": str(tool_output),
+                    }
                 )
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": str(tool_output),
-                })
             except Exception as exc:
                 logger.warning(
                     "[%s] tool %s failed: %s",
@@ -316,18 +312,20 @@ class BaseAgent(ABC):
                 # Return the error to the model rather than crashing
                 # the turn. is_error tells the API this was a failed
                 # tool call, letting the model retry or move on.
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": f"Error executing {block.name}: {exc}",
-                    "is_error": True,
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": f"Error executing {block.name}: {exc}",
+                        "is_error": True,
+                    }
+                )
         return tool_results
 
     def _apply_soft_cap(
-            self,
-            tool_results: list[dict[str, Any]],
-            result: TurnResult,
+        self,
+        tool_results: list[dict[str, Any]],
+        result: TurnResult,
     ) -> bool:
         """Check the soft cap and inject a nudge if reached.
 
