@@ -211,7 +211,7 @@ class RecruiterHMMessage(BaseModel):
     id: str
     sender_id: str
     receiver_id: str
-    round: int = Field(ge=0)
+    round_sent: int = Field(ge=0)
     content: str
     message_type: Literal[
         "candidate_forward", "feedback", "nudge", "role_change_request"
