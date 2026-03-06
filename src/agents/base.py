@@ -43,10 +43,11 @@ _SOFT_CAP_NUDGE = (
 # catch runaway costs early. Update if pricing changes
 # Per-million token pricing (input, output) e.g., sonnet (3.0, 15.0)
 # Sonnet costs $3 per 1 million input tokens and $15 for 1m output tokens
+# Models used: Sonnet 4.6, Opus 4.6, Haiku 4.5 as of 3/3/2026
 _PRICING: dict[str, tuple[float, float]] = {
     "sonnet": (3.0, 15.0),
-    "haiku": (0.80, 4.0),
-    "opus": (15.0, 75.0),
+    "haiku": (1, 5.0),
+    "opus": (5.0, 25.0),
 }
 
 
@@ -105,8 +106,6 @@ class BaseAgent(ABC):
         self._config = config
         self._client = client or AsyncAnthropic()
         self._prompt_builder = PromptBuilder(config)
-
-    # ── Abstract methods ────────────────────────────────────
 
     @abstractmethod
     def get_tools(self) -> list[dict[str, Any]]:
