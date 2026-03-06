@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
+
 from src.schemas.agents import (
     AgentProfile,
     Education,
@@ -296,3 +298,87 @@ def make_sample_tools() -> list[dict[str, Any]]:
             },
         },
     ]
+
+
+# Mock API response factories
+
+def make_usage(input_tokens: int = 100, output_tokens: int = 50) -> Usage:
+    """Build a Usage object with sensible defaults for testing."""
+    return Usage(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_creation_input_tokens=0,
+        cache_read_input_tokens=0,
+    )
+
+
+def make_text_response(text: str = "I'll think about it.") -> Message:
+    """Build a Message with a single text block (no tool use)."""
+    return Message(
+        id="msg_test",
+        content=[TextBlock(type="text", text=text)],
+        model="claude-sonnet-4-20250514",
+        role="assistant",
+        stop_reason="end_turn",
+        type="message",
+        usage=make_usage(),
+    )
+
+
+def make_tool_response(
+    tool_name: str = "browse_job_board",
+    tool_input: dict | None = None,
+    tool_id: str = "toolu_test",
+    text: str | None = None,
+) -> Message:
+    """Build a Message containing a single tool_use block.
+
+    Args:
+        tool_name: Name of the tool being called.
+        tool_input: Input dict for the tool call.
+        tool_id: Unique tool use ID.
+        text: Optional preceding text block.
+    """
+    content = []
+    if text:
+        content.append(TextBlock(type="text", text=text))
+    content.append(
+        ToolUseBlock(
+            type="tool_use",
+            id=tool_id,
+            name=tool_name,
+            input=tool_input or {},
+        )
+    )
+    return Message(
+        id="msg_test",
+        content=content,
+        model="claude-sonnet-4-20250514",
+        role="assistant",
+        stop_reason="tool_use",
+        type="message",
+        usage=make_usage(),
+    )
+
+
+def make_multi_tool_response(
+    tools: list[tuple[str, dict, str]],
+) -> Message:
+    """Build a Message with multiple tool_use blocks.
+
+    Args:
+        tools: List of (name, input, id) tuples.
+    """
+    content = [
+        ToolUseBlock(type="tool_use", id=tid, name=name, input=inp)
+        for name, inp, tid in tools
+    ]
+    return Message(
+        id="msg_test",
+        content=content,
+        model="claude-sonnet-4-20250514",
+        role="assistant",
+        stop_reason="tool_use",
+        type="message",
+        usage=make_usage(),
+    )
