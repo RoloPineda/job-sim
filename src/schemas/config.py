@@ -43,19 +43,28 @@ class RunConfig(BaseModel):
             conversation.
         interview_turn_ceiling: Maximum turns in an interview
             conversation.
+        tool_call_soft_cap: Maximum tool calls per agent per round
+            before the engine injects a wrap-up nudge. The agent can
+            still make one more call after the cap is hit.
         market_condition: Whether the market favors employers,
             employees, or is balanced. Fed into recruiter and HM
             prompts to shape behavior.
         ghost_job_percentage: Percentage of postings seeded as ghost
             jobs that never advance candidates.
-        new_postings_per_round: How many new jobs appear on the board
-            each round.
         posting_expiry_rounds: How many rounds a posting stays active
             before expiring.
+        min_postings_per_role_type: Minimum open postings per role
+            type on the board. When a role type drops below this
+            threshold, new background companies are generated.
         num_seekers: Total number of jobseeker agents.
-        num_companies: Total number of companies.
-        num_postings: Total number of initial job postings seeded at
-            the start.
+        num_agent_companies: Number of companies backed by recruiter
+            and hiring manager agents.
+        num_background_companies: Number of deterministic background
+            companies that respond based on parameters alone.
+        postings_per_agent_company: Number of initial job postings
+            seeded per agent-backed company.
+        postings_per_background_company_range: Tuple of (min, max)
+            postings seeded per background company.
         total_rounds: How many rounds the simulation runs.
     """
 
@@ -73,22 +82,25 @@ class RunConfig(BaseModel):
     max_context_tokens: int = Field(gt=0)
 
     # Simulation structure parameters
-    turn_structure: str # might
+    turn_structure: str
     agent_action_order: list[str]
     reflection_frequency: int = Field(gt=0)
     interview_turn_floor: int = Field(gt=0)
     interview_turn_ceiling: int = Field(gt=0)
+    tool_call_soft_cap: int = Field(gt=0)
 
     # Market parameters
     market_condition: Literal["employer_favored", "balanced", "employee_favored"]
     ghost_job_percentage: float = Field(ge=0.0, le=1.0)
-    new_postings_per_round: int = Field(ge=0)
     posting_expiry_rounds: int = Field(gt=0)
+    min_postings_per_role_type: int = Field(gt=0)
 
     # Scale parameters
     num_seekers: int = Field(gt=0)
-    num_companies: int = Field(gt=0)
-    num_postings: int = Field(gt=0)
+    num_agent_companies: int = Field(gt=0)
+    num_background_companies: int = Field(gt=0)
+    postings_per_agent_company: int = Field(gt=0)
+    postings_per_background_company_range: tuple[int, int]
     total_rounds: int = Field(gt=0)
 
     @model_validator(mode="after")
@@ -98,5 +110,21 @@ class RunConfig(BaseModel):
             raise ValueError(
                 f"interview_turn_floor ({self.interview_turn_floor}) must not "
                 f"exceed interview_turn_ceiling ({self.interview_turn_ceiling})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_background_posting_range(self) -> "RunConfig":
+        """Ensure the background company posting range is valid."""
+        low, high = self.postings_per_background_company_range
+        if low < 1:
+            raise ValueError(
+                f"postings_per_background_company_range lower bound "
+                f"({low}) must be at least 1"
+            )
+        if low > high:
+            raise ValueError(
+                f"postings_per_background_company_range lower bound "
+                f"({low}) must not exceed upper bound ({high})"
             )
         return self
