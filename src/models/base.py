@@ -21,6 +21,4 @@ class UUIDPrimaryKeyMixin:
         id: Auto-generated UUID v4 primary key.
     """
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

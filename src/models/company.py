@@ -17,8 +17,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.base import Base, UUIDPrimaryKeyMixin
 
 _VALID_INDUSTRIES = (
-    "technology", "finance", "healthcare", "retail",
-    "media", "education", "manufacturing", "consulting",
+    "technology",
+    "finance",
+    "healthcare",
+    "retail",
+    "media",
+    "education",
+    "manufacturing",
+    "consulting",
 )
 _VALID_COMPANY_SIZES = ("startup", "mid", "enterprise")
 _VALID_GROWTH_STAGES = ("early", "scaling", "mature")
@@ -100,26 +106,16 @@ class Company(UUIDPrimaryKeyMixin, Base):
     growth_stage: Mapped[str] = mapped_column(String(20), nullable=False)
     culture_description: Mapped[str] = mapped_column(Text, nullable=False)
     budget_flexibility: Mapped[str] = mapped_column(String(20), nullable=False)
-    responsiveness_pattern: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )
+    responsiveness_pattern: Mapped[str] = mapped_column(String(20), nullable=False)
     base_response_delay: Mapped[int] = mapped_column(Integer, nullable=False)
-    response_delay_variance: Mapped[int] = mapped_column(
-        Integer, nullable=False
-    )
-    rejection_specificity: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )
+    response_delay_variance: Mapped[int] = mapped_column(Integer, nullable=False)
+    rejection_specificity: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    recruiters: Mapped[list["Recruiter"]] = relationship(
-        back_populates="company"
-    )
+    recruiters: Mapped[list["Recruiter"]] = relationship(back_populates="company")
     hiring_managers: Mapped[list["HiringManager"]] = relationship(
         back_populates="company"
     )
-    postings: Mapped[list["JobPosting"]] = relationship(
-        back_populates="company"
-    )
+    postings: Mapped[list["JobPosting"]] = relationship(back_populates="company")
 
 
 class JobPosting(UUIDPrimaryKeyMixin, Base):
@@ -185,9 +181,7 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     department: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    requirements: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False
-    )
+    requirements: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     salary_range_low: Mapped[int | None] = mapped_column(Integer)
     salary_range_high: Mapped[int | None] = mapped_column(Integer)
     location: Mapped[str] = mapped_column(String, nullable=False)
@@ -195,12 +189,8 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
     seniority: Mapped[str] = mapped_column(String(20), nullable=False)
     round_posted: Mapped[int] = mapped_column(Integer, nullable=False)
     round_expires: Mapped[int | None] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="open"
-    )
-    is_ghost: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    is_ghost: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     actual_budget: Mapped[int | None] = mapped_column(Integer)
 
     company: Mapped["Company"] = relationship(back_populates="postings")
