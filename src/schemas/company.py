@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+
 class CompanyProfile(BaseModel):
     """Profile representing a company's identity and hiring behavior.
 
@@ -45,8 +46,14 @@ class CompanyProfile(BaseModel):
     id: str
     name: str
     industry: Literal[
-        "technology", "finance", "healthcare", "retail",
-        "media", "education", "manufacturing", "consulting",
+        "technology",
+        "finance",
+        "healthcare",
+        "retail",
+        "media",
+        "education",
+        "manufacturing",
+        "consulting",
     ]
     size: Literal["startup", "mid", "enterprise"]
     growth_stage: Literal["early", "scaling", "mature"]

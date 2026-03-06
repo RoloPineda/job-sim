@@ -131,6 +131,7 @@ def agent(config, mock_client):
         client=mock_client,
     )
 
+
 class TestEstimateCost:
     def test_sonnet_pricing(self):
         cost = _estimate_cost("claude-sonnet-4-20250514", 1_000_000, 1_000_000)
@@ -156,6 +157,7 @@ class TestModelShort:
 
     def test_unknown(self):
         assert _model_short("gpt-4") == "gpt-4"
+
 
 class TestCallApi:
     @pytest.mark.asyncio
@@ -233,6 +235,7 @@ class TestCallApi:
             await agent.call_api("system", [{"role": "user", "content": "hi"}])
         # 1 initial + 3 retries = 4 total attempts
         assert mock_client.messages.create.await_count == 4
+
 
 class TestRunTurn:
     @pytest.mark.asyncio

@@ -97,6 +97,7 @@ class TestBuildSystemMessage:
         msg = builder.build_system_message(hm_profile)
         assert "vague direction" not in msg
 
+
 class TestBuildUserMessage:
     def test_includes_round_number(self, builder):
         msg = builder.build_user_message("some context", 7, "job_seeker")
@@ -137,6 +138,7 @@ class TestBuildUserMessage:
         msg = builder.build_user_message("ctx", 3, "job_seeker", None)
         assert "Recent updates:" not in msg
 
+
 class TestFormatTools:
     def test_passes_valid_tools(self, builder, sample_tools):
         result = builder.format_tools(sample_tools)
@@ -173,6 +175,7 @@ class TestFormatTools:
 
     def test_empty_list_returns_empty(self, builder):
         assert builder.format_tools([]) == []
+
 
 class TestBuildActionPayload:
     def test_assembles_all_pieces(self, builder, seeker_profile, sample_tools):
@@ -246,6 +249,7 @@ class TestMergeConsecutiveRoles:
         assert result[0]["role"] == "user"
         assert result[1]["role"] == "assistant"
         assert result[2]["role"] == "user"
+
 
 class TestBuildInterviewTurn:
     def test_empty_transcript_first_turn(self, builder, seeker_profile):
@@ -341,6 +345,7 @@ class TestBuildInterviewTurn:
             6,
         )
         assert "wrapping up" in payload["messages"][-1]["content"]
+
 
 class TestBuildReflectionPrompt:
     def test_includes_context_summary(self, builder, seeker_profile):

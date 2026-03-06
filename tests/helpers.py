@@ -302,6 +302,7 @@ def make_sample_tools() -> list[dict[str, Any]]:
 
 # Mock API response factories
 
+
 def make_usage(input_tokens: int = 100, output_tokens: int = 50) -> Usage:
     """Build a Usage object with sensible defaults for testing."""
     return Usage(

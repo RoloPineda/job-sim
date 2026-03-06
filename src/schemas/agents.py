@@ -78,8 +78,6 @@ class JobSeekerProfile(AgentProfile):
     savings: int = Field(ge=0)  # Depletes over rounds, creating behavioral pressure
     burn_rate: int = Field(gt=0)  # gt=0 prevents division by zero
 
-
-
     @model_validator(mode="after")
     def validate_comp_range(self) -> "JobSeekerProfile":
         """Ensure target_comp_low does not exceed target_comp_high."""
@@ -148,6 +146,7 @@ class HiringManagerProfile(AgentProfile):
     past_hiring_description: str
     feedback_clarity: Literal["clear", "vague", "contradictory"]
 
+
 class Education(BaseModel):
     """A single educational credential.
 
@@ -188,6 +187,7 @@ class WorkEntry(BaseModel):
     end_year: int | None = None
     end_month: int | None = Field(default=None, ge=1, le=12)
     bullets: tuple[str, ...]
+
 
 class AgentState(BaseModel):
     """Mutable state that evolves each round.
