@@ -62,7 +62,7 @@ class RecruiterAgent(BaseAgent):
         postings: list[JobPosting],
         applications: list[ApplicationRecord],
         hm_messages: list[RecruiterHMMessage],
-        seeker_info: dict[str, dict[str, str]],
+        job_seeker_info: dict[str, dict[str, str]],
         *,
         client: AsyncAnthropic | None = None,
     ) -> None:
@@ -79,7 +79,7 @@ class RecruiterAgent(BaseAgent):
                 postings.
             hm_messages: History of messages exchanged with hiring
                 managers.
-            seeker_info: Maps seeker_id to a dict containing "name"
+            job_seeker_info: Maps seeker_id to a dict containing "name"
                 and "resume" for candidates who applied.
             client: Anthropic async client. Injected for testing.
         """
@@ -89,7 +89,7 @@ class RecruiterAgent(BaseAgent):
         self._postings = {p.id: p for p in postings}
         self._applications = {a.id: a for a in applications}
         self._hm_messages = hm_messages
-        self._seeker_info = seeker_info
+        self._job_seeker_info = job_seeker_info
         self._screened_application_ids: set[str] = set()
 
         self.hm_messages_sent: list[RecruiterHMMessage] = []
@@ -174,10 +174,10 @@ class RecruiterAgent(BaseAgent):
 
         app = self._applications[application_id]
         posting = self._postings.get(app.posting_id)
-        seeker = self._seeker_info.get(app.seeker_id, {})
-        resume_text = seeker.get("resume")
+        job_seeker = self._job_seeker_info.get(app.job_seeker_id, {})
+        resume_text = job_seeker.get("resume")
 
-        sections = self._format_evaluation_header(app, posting, seeker)
+        sections = self._format_evaluation_header(app, posting, job_seeker)
         role_history = self._collect_role_history(app.posting_id)
         sections.extend(role_history.lines)
         sections.append(
@@ -192,20 +192,20 @@ class RecruiterAgent(BaseAgent):
         self,
         app: ApplicationRecord,
         posting: JobPosting | None,
-        seeker: dict[str, str],
+        job_seeker: dict[str, str],
     ) -> list[str]:
         """Formats the candidate identity, role alignment, and resume.
 
         Args:
             app: The application being evaluated.
             posting: The posting applied to, if found.
-            seeker: Dict with "name" and optional "resume" keys.
+            job_seeker: Dict with "name" and optional "resume" keys.
 
         Returns:
             Lines covering candidate name, role, status, requirements,
             and resume preview.
         """
-        candidate_name = seeker.get("name", "Unknown")
+        candidate_name = job_seeker.get("name", "Unknown")
         lines = [
             "Candidate Fit Assessment",
             f"  Candidate: {candidate_name}",
@@ -219,7 +219,7 @@ class RecruiterAgent(BaseAgent):
                 f"  Requirements: {', '.join(posting.requirements)}"
             )
 
-        resume_text = seeker.get("resume")
+        resume_text = job_seeker.get("resume")
         if resume_text:
             lines.append(f"  Resume preview: {resume_text[:500]}")
         else:
@@ -485,17 +485,17 @@ class RecruiterAgent(BaseAgent):
         formatted = []
         for app in pending:
             posting = self._postings.get(app.posting_id)
-            seeker = self._seeker_info.get(app.seeker_id, {})
+            job_seeker = self._job_seeker_info.get(app.job_seeker_id, {})
 
             lines = [
                 f"Application: {app.id}",
-                f"  Candidate: {seeker.get('name', 'Unknown')}",
+                f"  Candidate: {job_seeker.get('name', 'Unknown')}",
                 f"  Applied to: {posting.title if posting else app.posting_id}"
                 f" ({app.posting_id})",
                 f"  Round submitted: {app.round_submitted}",
             ]
 
-            resume_text = seeker.get("resume", "No resume available.")
+            resume_text = job_seeker.get("resume", "No resume available.")
             lines.append(f"  Resume:\n{resume_text}")
 
             if posting:
@@ -562,8 +562,8 @@ class RecruiterAgent(BaseAgent):
 
         self._state.total_forwarded += 1
 
-        seeker = self._seeker_info.get(app.seeker_id, {})
-        candidate_name = seeker.get("name", "Unknown")
+        job_seeker = self._job_seeker_info.get(app.job_seeker_id, {})
+        candidate_name = job_seeker.get("name", "Unknown")
 
         logger.info(
             "[%s] forwarded %s (%s) to HM %s for %s",
@@ -584,7 +584,7 @@ class RecruiterAgent(BaseAgent):
         """Sends a status update or rejection to a candidate.
 
         Updates the application status and creates an EventEntry that
-        the seeker will see on their next check_application_status call.
+        the jobseeker will see on their next check_application_status call.
 
         Args:
             tool_input: Must contain "application_id", "message",
@@ -611,7 +611,7 @@ class RecruiterAgent(BaseAgent):
         event_id = f"evt-{uuid.uuid4().hex[:8]}"
         event = EventEntry(
             id=event_id,
-            agent_id=app.seeker_id,
+            agent_id=app.job_seeker_id,
             round_number=self._state.round_number,
             event_type=f"application_{new_status}",
             details={
@@ -628,8 +628,8 @@ class RecruiterAgent(BaseAgent):
         if new_status == "rejected":
             self._state.total_rejected += 1
 
-        seeker = self._seeker_info.get(app.seeker_id, {})
-        candidate_name = seeker.get("name", "Unknown")
+        job_seeker = self._job_seeker_info.get(app.job_seeker_id, {})
+        candidate_name = job_seeker.get("name", "Unknown")
 
         logger.info(
             "[%s] sent %s to %s (%s) for %s",
