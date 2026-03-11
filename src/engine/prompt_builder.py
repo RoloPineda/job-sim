@@ -8,7 +8,7 @@ elsewhere.
 
 from typing import Any, NotRequired, TypedDict
 
-from schemas.agents import AgentProfile
+from schemas.profiles import AgentProfile
 from schemas.config import RunConfig
 
 _SEEKER_INSTRUCTIONS = (
