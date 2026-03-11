@@ -2,9 +2,9 @@
 
 import pytest
 
-from src.engine.prompt_builder import PromptBuilder
-from src.schemas.agents import AgentProfile, HiringManagerProfile, RecruiterProfile
-from src.schemas.config import RunConfig
+from engine.prompt_builder import PromptBuilder
+from schemas.config import RunConfig
+from schemas.profiles import AgentProfile, HiringManagerProfile, RecruiterProfile
 from tests.helpers import (
     make_config,
     make_hm_profile,

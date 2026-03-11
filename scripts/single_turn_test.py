@@ -1,7 +1,7 @@
 """Single-turn validation script for the jobseeker agent.
 
 Runs one turn of Sarah Chen's job search against the real Anthropic API.
-Prints everything: prompts sent, model responses, tool inputs/outputs,
+Logs everything: prompts sent, model responses, tool inputs/outputs,
 cost, resumes written, applications submitted, and final state.
 No database writes.
 
@@ -10,12 +10,12 @@ Usage:
 """
 
 import asyncio
+import logging
 import os
 import sys
 import time
 from typing import Any
 
-# src/ is the package root for internal imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from dotenv import load_dotenv
@@ -26,44 +26,79 @@ from anthropic import AsyncAnthropic
 from anthropic.types import Message, TextBlock, ToolUseBlock
 
 from agents.job_seeker import JobSeekerAgent
-from schemas.agents import AgentState, Education, JobSeekerProfile, WorkEntry
 from schemas.company import JobPosting
 from schemas.config import RunConfig
+from schemas.profiles import JobSeekerProfile
+from schemas.shared import Education, WorkEntry
+from schemas.states import JobSeekerState
+
+LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
+LOG_FILE = os.path.join(LOG_DIR, "single_turn_test.log")
 
 
-def _print_header(call_number: int) -> None:
-    print(f"\n{'='*60}")
-    print(f"API CALL #{call_number}")
-    print(f"{'='*60}")
+def _configure_logging() -> logging.Logger:
+    """Sets up file and console logging.
+
+    Returns:
+        The configured logger instance.
+    """
+    os.makedirs(LOG_DIR, exist_ok=True)
+
+    logger = logging.getLogger("single_turn_test")
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
+
+    file_handler = logging.FileHandler(LOG_FILE, mode="w", encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
 
 
-def _print_user_message(messages: list[dict[str, Any]]) -> None:
+log = _configure_logging()
+
+
+def _log_header(call_number: int) -> None:
+    log.debug("\n%s", "=" * 60)
+    log.debug("API CALL #%d", call_number)
+    log.debug("=" * 60)
+
+
+def _log_user_message(messages: list[dict[str, Any]]) -> None:
     last_msg = messages[-1]
-    print(f"\n--- USER MESSAGE (last of {len(messages)}) ---")
+    log.debug("\n--- USER MESSAGE (last of %d) ---", len(messages))
     if isinstance(last_msg["content"], str):
-        print(last_msg["content"])
+        log.debug("%s", last_msg["content"])
         return
     for block in last_msg["content"]:
         if block.get("type") == "tool_result":
             err = " [ERROR]" if block.get("is_error") else ""
-            print(f"  [tool_result for {block['tool_use_id']}]{err}")
-            print(f"    {block.get('content', '')}")
+            log.debug("  [tool_result for %s]%s", block["tool_use_id"], err)
+            log.debug("    %s", block.get("content", ""))
         else:
-            print(f"  {block}")
+            log.debug("  %s", block)
 
 
-def _print_response(response: Message) -> None:
-    print("\n--- MODEL RESPONSE ---")
-    print(f"  Stop reason: {response.stop_reason}")
+def _log_response(response: Message) -> None:
+    log.debug("\n--- MODEL RESPONSE ---")
+    log.debug("  Stop reason: %s", response.stop_reason)
     for block in response.content:
         if isinstance(block, TextBlock):
-            print(f"  [text] {block.text}")
+            log.debug("  [text] %s", block.text)
         elif isinstance(block, ToolUseBlock):
-            print(f"  [tool_use] {block.name} (id={block.id})")
-            print(f"    input: {block.input}")
+            log.debug("  [tool_use] %s (id=%s)", block.name, block.id)
+            log.debug("    input: %s", block.input)
+
 
 class InstrumentedJobSeeker(JobSeekerAgent):
-    """Wraps JobSeekerAgent to print prompts, responses, and tool I/O."""
+    """Wraps JobSeekerAgent to log prompts, responses, and tool I/O."""
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -77,24 +112,26 @@ class InstrumentedJobSeeker(JobSeekerAgent):
         model: str | None = None,
     ) -> Message:
         self._call_number += 1
-        _print_header(self._call_number)
+        _log_header(self._call_number)
         if self._call_number == 1:
-            print(f"\n--- SYSTEM PROMPT ---\n{system}")
-        _print_user_message(messages)
+            log.debug("\n--- SYSTEM PROMPT ---\n%s", system)
+        _log_user_message(messages)
 
         response = await super().call_api(system, messages, tools, model)
-        _print_response(response)
+        _log_response(response)
         return response
 
     async def handle_tool_call(
         self, tool_name: str, tool_input: dict[str, Any]
     ) -> str:
         result = await super().handle_tool_call(tool_name, tool_input)
-        print(f"\n--- TOOL RESULT: {tool_name} ---")
-        print(f"  {result}")
+        log.debug("\n--- TOOL RESULT: %s ---", tool_name)
+        log.debug("  %s", result)
         return result
 
+
 def build_sarah() -> JobSeekerProfile:
+    """Builds Sarah Chen's immutable profile."""
     return JobSeekerProfile(
         id="js-sarah",
         agent_type="job_seeker",
@@ -119,8 +156,14 @@ def build_sarah() -> JobSeekerProfile:
             Education(school="UT Austin", degree="BS Computer Science", year=2019),
         ],
         actual_skills=[
-            "Python", "SQL", "Spark", "Airflow", "scikit-learn",
-            "PyTorch", "data modeling", "A/B testing",
+            "Python",
+            "SQL",
+            "Spark",
+            "Airflow",
+            "scikit-learn",
+            "PyTorch",
+            "data modeling",
+            "A/B testing",
         ],
         perceived_skills=["Python", "SQL", "Airflow", "some ML"],
         work_history=[
@@ -153,6 +196,13 @@ def build_sarah() -> JobSeekerProfile:
         experience_years=5,
         self_awareness="underconfident",
         communication_ability="average",
+    )
+
+
+def build_sarah_state() -> JobSeekerState:
+    """Builds Sarah Chen's initial mutable state."""
+    return JobSeekerState(
+        round_number=1,
         target_roles=["Data Engineer", "ML Engineer"],
         target_seniority="mid",
         target_comp_low=130_000,
@@ -165,6 +215,7 @@ def build_sarah() -> JobSeekerProfile:
 
 
 def build_postings() -> list[JobPosting]:
+    """Builds the set of visible job postings for the test."""
     return [
         JobPosting(
             id="post_014",
@@ -293,6 +344,7 @@ def build_postings() -> list[JobPosting]:
 
 
 def build_config() -> RunConfig:
+    """Builds simulation-wide configuration for the test."""
     return RunConfig(
         temperature=0.7,
         top_p=1.0,
@@ -319,87 +371,80 @@ def build_config() -> RunConfig:
         total_rounds=30,
     )
 
+
 async def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        print("ERROR: Set ANTHROPIC_API_KEY in .env or environment.")
+        log.error("Set ANTHROPIC_API_KEY in .env or environment.")
         sys.exit(1)
 
     client = AsyncAnthropic(api_key=api_key)
     profile = build_sarah()
     config = build_config()
-    state = AgentState(round_number=1)
+    state = build_sarah_state()
     postings = build_postings()
-    recruiter_map = {
-        "post_014": "rec-001",
-        "post_027": "rec-002",
-    }
 
     agent = InstrumentedJobSeeker(
         profile=profile,
         config=config,
         state=state,
         postings=postings,
-        recruiter_map=recruiter_map,
         client=client,
     )
 
-    print("=" * 60)
-    print("SINGLE-TURN VALIDATION: Sarah Chen, Round 1")
-    print("=" * 60)
+    log.info("=" * 60)
+    log.info("SINGLE-TURN VALIDATION: Sarah Chen, Round 1")
+    log.info("=" * 60)
 
     t0 = time.monotonic()
     result = await agent.run_turn(round_number=1)
     elapsed = time.monotonic() - t0
 
-    # Turn summary
-    print()
-    print("=" * 60)
-    print("TURN RESULT")
-    print("=" * 60)
-    print(f"  Tool calls:      {result.tool_calls_made}")
-    print(f"  API calls:       {result.api_calls_made}")
-    print(f"  Input tokens:    {result.total_input_tokens:,}")
-    print(f"  Output tokens:   {result.total_output_tokens:,}")
-    print(f"  Estimated cost:  ${result.total_cost:.4f}")
-    print(f"  Soft cap hit:    {result.soft_cap_hit}")
-    print(f"  Skipped:         {result.skipped}")
+    log.info("")
+    log.info("=" * 60)
+    log.info("TURN RESULT")
+    log.info("=" * 60)
+    log.info("  Tool calls:      %d", result.tool_calls_made)
+    log.info("  API calls:       %d", result.api_calls_made)
+    log.info("  Input tokens:    %s", f"{result.total_input_tokens:,}")
+    log.info("  Output tokens:   %s", f"{result.total_output_tokens:,}")
+    log.info("  Estimated cost:  $%.4f", result.total_cost)
+    log.info("  Soft cap hit:    %s", result.soft_cap_hit)
+    log.info("  Skipped:         %s", result.skipped)
     if result.skip_reason:
-        print(f"  Skip reason:     {result.skip_reason}")
-    print(f"  Wall time:       {elapsed:.1f}s")
+        log.info("  Skip reason:     %s", result.skip_reason)
+    log.info("  Wall time:       %.1fs", elapsed)
 
-    # Resumes
-    print()
-    print("-" * 60)
-    print(f"RESUMES WRITTEN ({len(agent.resume_versions)})")
-    print("-" * 60)
+    log.info("")
+    log.info("-" * 60)
+    log.info("RESUMES WRITTEN (%d)", len(agent.resume_versions))
+    log.info("-" * 60)
     for rv in agent.resume_versions:
-        print(f"  ID:      {rv.id}")
-        print(f"  Trigger: {rv.trigger}")
-        print(f"  Target:  {rv.target_posting_id or 'general'}")
-        print(f"  State:   {rv.state_summary_at_creation}")
-        print(f"  Text:\n{rv.full_text}")
-        print()
+        log.info("  ID:      %s", rv.id)
+        log.info("  Trigger: %s", rv.trigger)
+        log.info("  Target:  %s", rv.target_posting_id or "general")
+        log.info("  State:   %s", rv.state_summary_at_creation)
+        log.info("  Text:\n%s", rv.full_text)
+        log.info("")
 
-    # Applications
-    print("-" * 60)
-    print(f"APPLICATIONS SUBMITTED ({len(agent.applications)})")
-    print("-" * 60)
+    log.info("-" * 60)
+    log.info("APPLICATIONS SUBMITTED (%d)", len(agent.applications))
+    log.info("-" * 60)
     for app in agent.applications:
-        print(f"  ID:          {app.id}")
-        print(f"  Posting:     {app.posting_id}")
-        print(f"  Recruiter:   {app.recruiter_id or 'none (background)'}")
-        print(f"  Resume ver:  {app.resume_version_id}")
-        print()
+        log.info("  ID:          %s", app.id)
+        log.info("  Posting:     %s", app.posting_id)
+        log.info("  Resume ver:  %s", app.resume_version_id)
+        log.info("")
 
-    # Final state
-    print("-" * 60)
-    print("FINAL STATE")
-    print("-" * 60)
-    print(f"  Has resume:          {state.current_resume is not None}")
-    print(f"  Pipeline count:      {len(state.current_pipeline)}")
-    print(f"  Total applications:  {state.metrics.get('total_applications', 0)}")
-    print()
+    log.info("-" * 60)
+    log.info("FINAL STATE")
+    log.info("-" * 60)
+    log.info("  Has resume:          %s", state.current_resume is not None)
+    log.info("  Pipeline count:      %d", len(state.current_pipeline))
+    log.info("  Total applications:  %d", state.total_applications)
+    log.info("  Total rejections:    %d", state.total_rejections)
+    log.info("")
+    log.info("Full log written to %s", LOG_FILE)
 
 
 if __name__ == "__main__":

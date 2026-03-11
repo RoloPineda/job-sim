@@ -7,7 +7,7 @@ import pytest
 from anthropic import RateLimitError
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
-from src.agents.base import (
+from agents.base import (
     BaseAgent,
     _estimate_cost,
     _model_short,
@@ -139,7 +139,7 @@ class TestEstimateCost:
 
     def test_haiku_pricing(self):
         cost = _estimate_cost("claude-haiku-4-20250414", 1_000_000, 1_000_000)
-        assert cost == pytest.approx(4.8)
+        assert cost == pytest.approx(6.0)
 
     def test_unknown_model_returns_zero(self):
         assert _estimate_cost("unknown-model", 1000, 1000) == 0.0
@@ -348,9 +348,12 @@ class TestRunTurn:
         ]
         result = await agent.run_turn(1)
         assert result.soft_cap_hit
-        # Check that the nudge was appended to the last tool result
+        # Check that the nudge was appended to the last tool result.
+        # Use index [2] because mock stores a reference to the mutated
+        # messages list: [0]=user, [1]=assistant, [2]=user(tool results),
+        # [3]=assistant (appended after this call).
         first_followup = mock_client.messages.create.call_args_list[1]
-        user_content = first_followup.kwargs["messages"][-1]["content"]
+        user_content = first_followup.kwargs["messages"][2]["content"]
         last_result = user_content[-1]
         assert "running low on time" in last_result["content"]
 

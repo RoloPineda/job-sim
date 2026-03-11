@@ -4,16 +4,16 @@ from typing import Any
 
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
-from src.schemas.agents import (
+from schemas.company import CompanyProfile, JobPosting
+from schemas.config import RunConfig
+from schemas.profiles import (
     AgentProfile,
-    Education,
     HiringManagerProfile,
     JobSeekerProfile,
     RecruiterProfile,
-    WorkEntry,
 )
-from src.schemas.company import CompanyProfile, JobPosting
-from src.schemas.config import RunConfig
+from schemas.shared import Education, WorkEntry
+from schemas.states import JobSeekerState
 
 
 def make_config(**overrides) -> RunConfig:
@@ -124,14 +124,6 @@ def make_job_seeker(
         experience_years=3,
         self_awareness="accurate",
         communication_ability="strong",
-        target_roles=["Software Engineer"],
-        target_seniority="mid",
-        target_comp_low=80_000,
-        target_comp_high=120_000,
-        location_flexibility="moderate",
-        remote_preference="hybrid",
-        savings=10_000,
-        burn_rate=2_000,
     )
     defaults.update(overrides)
     return JobSeekerProfile(**defaults)
@@ -162,6 +154,30 @@ def make_seeker_profile(**overrides) -> AgentProfile:
     )
     defaults.update(overrides)
     return AgentProfile(**defaults)
+
+
+def make_seeker_state(**overrides) -> JobSeekerState:
+    """Build a valid JobSeekerState, merging any field overrides.
+
+    Args:
+        **overrides: Any JobSeekerState fields to override.
+
+    Returns:
+        A fully constructed JobSeekerState.
+    """
+    defaults = dict(
+        round_number=1,
+        savings=10_000,
+        burn_rate=2_000,
+        target_roles=["Software Engineer"],
+        target_seniority="mid",
+        target_comp_low=80_000,
+        target_comp_high=120_000,
+        location_flexibility="moderate",
+        remote_preference="hybrid",
+    )
+    defaults.update(overrides)
+    return JobSeekerState(**defaults)
 
 
 def make_recruiter_profile(**overrides) -> RecruiterProfile:
@@ -257,6 +273,7 @@ def make_job_posting(**overrides) -> JobPosting:
     defaults = dict(
         id="post-1",
         company_id="co-1",
+        company_name="Acme Inc",
         hiring_manager_id="hm-1",
         title="Software Engineer",
         department="Engineering",
