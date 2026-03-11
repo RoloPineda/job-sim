@@ -1,330 +1,34 @@
 """Jobseeker agent with tools for browsing, resume writing, and applying.
 
-Implements three tools for Step 1 validation: browse_job_board, write_resume,
-and submit_application. Remaining tools are defined (so the model sees them)
-but return a stub message until implemented.
+Handles the full candidate lifecycle: browsing postings, crafting
+resumes, submitting applications, and eventually interviewing and
+evaluating offers. Operates autonomously based on the seeker's
+profile traits and evolving financial pressure.
 """
 
 import logging
 import uuid
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, Literal
 
 from anthropic import AsyncAnthropic
 
 from agents.base import BaseAgent
-from schemas.agents import AgentState, JobSeekerProfile
 from schemas.company import JobPosting
 from schemas.config import RunConfig
+from schemas.profiles import JobSeekerProfile
 from schemas.records import ApplicationRecord, ResumeVersion
+from schemas.states import JobSeekerState
+from tools.definitions import (
+    BROWSE_JOB_BOARD,
+    SUBMIT_APPLICATION,
+    WRITE_RESUME,
+    job_seeker_tools,
+)
 
 logger = logging.getLogger(__name__)
 
-# Tool name constants
-BROWSE_JOB_BOARD = "browse_job_board"
-RESEARCH_COMPANY = "research_company"
-WRITE_RESUME = "write_resume"
-WRITE_COVER_LETTER = "write_cover_letter"
-SUBMIT_APPLICATION = "submit_application"
-CHECK_APPLICATION_STATUS = "check_application_status"
-REVIEW_APPLICATION_HISTORY = "review_application_history"
-RESPOND_TO_RECRUITER = "respond_to_recruiter"
-DO_INTERVIEW = "do_interview"
-EVALUATE_OFFER = "evaluate_offer"
-NEGOTIATE_OFFER = "negotiate_offer"
-ACCEPT_OFFER = "accept_offer"
-DECLINE_OFFER = "decline_offer"
-REFLECT = "reflect"
-
 _STUB_MESSAGE = "This action is not available right now."
-
-_TOOL_DEFINITIONS: list[dict[str, Any]] = [
-    {
-        "name": BROWSE_JOB_BOARD,
-        "description": (
-            "View current open job postings. You can filter by role type, "
-            "seniority, location, or whether the role is remote. Returns "
-            "postings with whatever information the company chose to "
-            "include. Some are detailed, some are vague. Not all list salary."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "filter_role": {
-                    "type": "string",
-                    "description": "Filter by job title or role type.",
-                },
-                "filter_seniority": {
-                    "type": "string",
-                    "description": (
-                        "Filter by seniority level "
-                        "(junior, mid, senior, lead, staff)."
-                    ),
-                },
-                "filter_location": {
-                    "type": "string",
-                    "description": "Filter by location.",
-                },
-                "filter_remote": {
-                    "type": "boolean",
-                    "description": "If true, only show remote positions.",
-                },
-            },
-        },
-    },
-    {
-        "name": RESEARCH_COMPANY,
-        "description": (
-            "Look up information about a company that posted a role. "
-            "Returns company size, industry, growth stage, and culture "
-            "description. Helps you decide if this is somewhere you'd "
-            "actually want to work."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "company_id": {
-                    "type": "string",
-                    "description": "The ID of the company to research.",
-                },
-            },
-            "required": ["company_id"],
-        },
-    },
-    {
-        "name": WRITE_RESUME,
-        "description": (
-            "Create or rewrite your resume. You can tailor it for a "
-            "specific role or keep it general. This is what the employer "
-            "sees first. You decide how much effort to put into each "
-            "version."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "full_text": {
-                    "type": "string",
-                    "description": "The complete resume text.",
-                },
-                "trigger": {
-                    "type": "string",
-                    "enum": ["initial", "general_rewrite", "tailored"],
-                    "description": (
-                        "Why you are writing this resume: initial for your "
-                        "first draft, general_rewrite to improve it broadly, "
-                        "tailored to customize for a specific posting."
-                    ),
-                },
-                "target_posting_id": {
-                    "type": "string",
-                    "description": (
-                        "If tailoring for a specific posting, provide its ID."
-                    ),
-                },
-            },
-            "required": ["full_text", "trigger"],
-        },
-    },
-    {
-        "name": WRITE_COVER_LETTER,
-        "description": (
-            "Write a cover letter for a specific application. Optional. "
-            "You decide whether it's worth the effort."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "full_text": {
-                    "type": "string",
-                    "description": "The complete cover letter text.",
-                },
-                "target_posting_id": {
-                    "type": "string",
-                    "description": "The posting this cover letter is for.",
-                },
-            },
-            "required": ["full_text", "target_posting_id"],
-        },
-    },
-    {
-        "name": SUBMIT_APPLICATION,
-        "description": (
-            "Apply to a posting. Attaches your current resume and "
-            "optionally a cover letter. Once submitted, you wait for a "
-            "response that may or may not come."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "posting_id": {
-                    "type": "string",
-                    "description": "The ID of the posting to apply to.",
-                },
-            },
-            "required": ["posting_id"],
-        },
-    },
-    {
-        "name": CHECK_APPLICATION_STATUS,
-        "description": (
-            "Check whether you've heard back from any pending "
-            "applications. Returns updates if any exist. Silence is "
-            "also information."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "name": REVIEW_APPLICATION_HISTORY,
-        "description": (
-            "Look back at your full application history. You can filter "
-            "by status, company, or role type. Returns matching "
-            "applications with company name, role, round applied, and "
-            "current status. Useful for checking whether you've already "
-            "applied somewhere, reviewing which companies never responded, "
-            "or taking stock of your overall progress."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "filter_status": {
-                    "type": "string",
-                    "description": (
-                        "Filter by application status "
-                        "(pending, reviewed, rejected, advanced, ghosted)."
-                    ),
-                },
-            },
-        },
-    },
-    {
-        "name": RESPOND_TO_RECRUITER,
-        "description": (
-            "Reply to a message from a recruiter. Could be scheduling, "
-            "answering questions, or following up."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "description": "Your reply to the recruiter.",
-                },
-                "recruiter_id": {
-                    "type": "string",
-                    "description": "The recruiter you are replying to.",
-                },
-            },
-            "required": ["message", "recruiter_id"],
-        },
-    },
-    {
-        "name": DO_INTERVIEW,
-        "description": (
-            "Participate in an interview conversation with a recruiter "
-            "or hiring manager. You'll be evaluated, but you're also "
-            "evaluating them."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "interview_id": {
-                    "type": "string",
-                    "description": "The ID of the scheduled interview.",
-                },
-            },
-            "required": ["interview_id"],
-        },
-    },
-    {
-        "name": EVALUATE_OFFER,
-        "description": (
-            "Review a job offer. See the compensation, benefits, role "
-            "details, and decide your next step."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "offer_id": {
-                    "type": "string",
-                    "description": "The ID of the offer to review.",
-                },
-            },
-            "required": ["offer_id"],
-        },
-    },
-    {
-        "name": NEGOTIATE_OFFER,
-        "description": (
-            "Counter an offer with different terms. You decide what to "
-            "push on and how hard."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "offer_id": {
-                    "type": "string",
-                    "description": "The offer you are negotiating.",
-                },
-                "counter_salary": {
-                    "type": "integer",
-                    "description": "Your counter salary amount.",
-                },
-                "reasoning": {
-                    "type": "string",
-                    "description": "Your reasoning for the counter.",
-                },
-            },
-            "required": ["offer_id", "counter_salary", "reasoning"],
-        },
-    },
-    {
-        "name": ACCEPT_OFFER,
-        "description": "Accept an offer and end your search.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "offer_id": {
-                    "type": "string",
-                    "description": "The offer to accept.",
-                },
-            },
-            "required": ["offer_id"],
-        },
-    },
-    {
-        "name": DECLINE_OFFER,
-        "description": "Turn down an offer and keep searching.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "offer_id": {
-                    "type": "string",
-                    "description": "The offer to decline.",
-                },
-                "reason": {
-                    "type": "string",
-                    "description": "Why you are declining.",
-                },
-            },
-            "required": ["offer_id"],
-        },
-    },
-    {
-        "name": REFLECT,
-        "description": (
-            "Step back and assess how your search is going. Think about "
-            "what's working, what isn't, and whether you need to change "
-            "your approach. Runs automatically every few rounds, but you "
-            "can also trigger it yourself."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-]
 
 
 def _format_posting(posting: JobPosting, current_round: int) -> str:
@@ -337,6 +41,9 @@ def _format_posting(posting: JobPosting, current_round: int) -> str:
         posting: The job posting to format.
         current_round: Current simulation round, used to compute how
             long the posting has been up.
+
+    Returns:
+        Multi-line formatted string with posting details.
     """
     days_up = current_round - posting.round_posted
     if days_up == 0:
@@ -368,7 +75,14 @@ def _format_posting(posting: JobPosting, current_round: int) -> str:
 
 
 def _format_work_history(profile: JobSeekerProfile) -> str:
-    """Format work history entries for the context prompt."""
+    """Format work history entries for the context prompt.
+
+    Args:
+        profile: The seeker profile containing work history.
+
+    Returns:
+        Formatted work history string, or a note if empty.
+    """
     if not profile.work_history:
         return "No prior work experience."
     entries = []
@@ -381,7 +95,14 @@ def _format_work_history(profile: JobSeekerProfile) -> str:
 
 
 def _format_education(profile: JobSeekerProfile) -> str:
-    """Format education history for the context prompt."""
+    """Format education history for the context prompt.
+
+    Args:
+        profile: The seeker profile containing education history.
+
+    Returns:
+        Comma-separated education entries.
+    """
     return ", ".join(
         f"{e.degree} from {e.school} ({e.year})" for e in profile.education_history
     )
@@ -394,80 +115,82 @@ class JobSeekerAgent(BaseAgent):
     and outcomes, and makes autonomous decisions about where to apply,
     how much effort to invest, and how selective to be.
 
-    Three tools are fully implemented for Step 1 validation:
-    browse_job_board, write_resume, and submit_application. The remaining
-    tools are visible to the model but return a stub response.
-
-    Args:
-        profile: The seeker's immutable profile with skills, preferences,
-            and financial info.
-        config: Simulation-wide parameters.
-        state: The seeker's mutable state (pipeline, resume, history).
-        postings: Visible job postings the seeker can browse.
-        recruiter_map: Maps posting_id to the recruiter_id responsible
-            for that posting. Used when creating ApplicationRecords.
-        client: Anthropic async client. Injected for testing.
+    Attributes:
+        resume_versions: Resume versions produced during the turn for
+            the engine to persist after the turn completes.
+        applications: Applications produced during the turn for the
+            engine to persist after the turn completes.
     """
 
     def __init__(
         self,
         profile: JobSeekerProfile,
         config: RunConfig,
-        state: AgentState,
+        state: JobSeekerState,
         postings: list[JobPosting],
         recruiter_map: dict[str, str],
         *,
         client: AsyncAnthropic | None = None,
     ) -> None:
+        """Initializes the seeker with pre-fetched simulation data.
+
+        Args:
+            profile: The seeker's immutable identity, skills, and traits.
+            config: Simulation-wide parameters.
+            state: The seeker's mutable state including financial
+                position, preferences, pipeline, and resume.
+            postings: Visible job postings the seeker can browse.
+            recruiter_map: Maps posting_id to the recruiter_id
+                responsible for that posting. Used when creating
+                ApplicationRecords.
+            client: Anthropic async client. Injected for testing.
+        """
         super().__init__(profile=profile, config=config, client=client)
         self._seeker = profile
         self._state = state
         self._postings = {p.id: p for p in postings}
         self._recruiter_map = recruiter_map
 
-        # Records produced during the turn for the engine to collect
         self.resume_versions: list[ResumeVersion] = []
         self.applications: list[ApplicationRecord] = []
 
     def get_tools(self) -> list[dict[str, Any]]:
         """Return all jobseeker tool definitions."""
-        return _TOOL_DEFINITIONS
+        return job_seeker_tools()
 
     def build_context(self) -> str:
         """Assemble the seeker's current situation for the user message.
 
-        Pulls from the profile (skills, preferences, financial state)
-        and mutable state (resume, pipeline, history) to give the model
-        a complete picture of where this person stands.
+        Pulls from the profile (skills, work history) and mutable state
+        (finances, preferences, resume, pipeline) to give the model a
+        complete picture of where this person stands.
+
+        Returns:
+            Formatted context string for injection into the user message.
         """
         p = self._seeker
         s = self._state
 
-        # Integer division is intentional: slight pessimism on runway is
-        # realistic since people don't think in fractional months.
-        months_remaining = p.savings // p.burn_rate if p.burn_rate else "unknown"
+        months_remaining = s.savings // s.burn_rate if s.burn_rate else "unknown"
 
         sections = [
-            # Skills and background
             f"Your skills: {', '.join(p.perceived_skills)}",
             f"Experience: {p.experience_years} years",
             f"Education: {_format_education(p)}",
             f"Location: {p.location} "
-            f"(flexibility: {p.location_flexibility}, "
-            f"remote preference: {p.remote_preference})",
+            f"(flexibility: {s.location_flexibility}, "
+            f"remote preference: {s.remote_preference})",
             "",
             "Work history:",
             _format_work_history(p),
             "",
-            # Financial pressure
             "Financial situation:",
-            f"- Savings: ${p.savings:,}",
-            f"- Monthly expenses: ${p.burn_rate:,}",
+            f"- Savings: ${s.savings:,}",
+            f"- Monthly expenses: ${s.burn_rate:,}",
             f"- Estimated runway: {months_remaining} months",
             "",
-            # Targets
-            f"Target roles: {', '.join(p.target_roles)} ({p.target_seniority} level)",
-            f"Target compensation: ${p.target_comp_low:,} - ${p.target_comp_high:,}",
+            f"Target roles: {', '.join(s.target_roles)} ({s.target_seniority} level)",
+            f"Target compensation: ${s.target_comp_low:,} - ${s.target_comp_high:,}",
         ]
 
         if s.current_resume:
@@ -475,7 +198,6 @@ class JobSeekerAgent(BaseAgent):
         else:
             sections.extend(["", "You haven't written a resume yet."])
 
-        # Application pipeline
         if s.current_pipeline:
             sections.append("")
             sections.append(f"Active applications ({len(s.current_pipeline)}):")
@@ -485,18 +207,13 @@ class JobSeekerAgent(BaseAgent):
                     f"{app.get('status', 'pending')}"
                 )
 
-        # Metrics summary
-        if s.metrics:
-            total = s.metrics.get("total_applications", 0)
-            rejections = s.metrics.get("rejections", 0)
-            if total > 0:
-                sections.append("")
-                sections.append(
-                    f"Overall: {total} applications submitted, "
-                    f"{rejections} rejections"
-                )
+        if s.total_applications > 0:
+            sections.append("")
+            sections.append(
+                f"Overall: {s.total_applications} applications submitted, "
+                f"{s.total_rejections} rejections"
+            )
 
-        # History context
         if s.compressed_history:
             sections.extend(["", "Previous context:", s.compressed_history])
 
@@ -513,10 +230,15 @@ class JobSeekerAgent(BaseAgent):
     ) -> str:
         """Dispatch a tool call to the appropriate handler.
 
-        Implemented tools execute their full logic. Stubbed tools return
-        a message indicating the action is not yet available.
+        Args:
+            tool_name: Name of the tool the model invoked.
+            tool_input: Parameters the model passed to the tool.
+
+        Returns:
+            Result string fed back to the model as tool output.
         """
-        handlers = {
+        _Handler = Callable[[dict[str, Any]], Awaitable[str]]
+        handlers: dict[str, _Handler] = {
             BROWSE_JOB_BOARD: self._browse_job_board,
             WRITE_RESUME: self._write_resume,
             SUBMIT_APPLICATION: self._submit_application,
@@ -533,35 +255,51 @@ class JobSeekerAgent(BaseAgent):
     async def evaluate(self, interaction: Any) -> str:
         """Produce a post-interview self-assessment.
 
-        Not yet implemented. Will generate the seeker's impressions of
-        the interview, company, and interviewer once the interview
-        engine is built.
+        Args:
+            interaction: Interview data to evaluate.
+
+        Returns:
+            Assessment string.
         """
+        # TODO: Implement once interview engine is built.
         return "Post-interview evaluation not yet implemented."
 
-    # -- Implemented tool handlers -------------------------------------------
-
     async def _browse_job_board(self, tool_input: dict[str, Any]) -> str:
-        """Filter and return visible postings matching the criteria."""
+        """Filter and return visible postings matching the criteria.
+
+        Args:
+            tool_input: Optional filters for role_type, seniority,
+                location, and min_salary.
+
+        Returns:
+            Formatted listing of matching postings.
+        """
         matches = list(self._postings.values())
 
-        filter_role = tool_input.get("filter_role")
-        if filter_role:
-            role_lower = filter_role.lower()
+        role_type = tool_input.get("role_type")
+        if role_type:
+            role_lower = role_type.lower()
             matches = [p for p in matches if role_lower in p.title.lower()]
 
-        filter_seniority = tool_input.get("filter_seniority")
-        if filter_seniority:
-            matches = [p for p in matches if p.seniority == filter_seniority]
+        seniority = tool_input.get("seniority")
+        if seniority:
+            matches = [p for p in matches if p.seniority == seniority]
 
-        filter_location = tool_input.get("filter_location")
-        if filter_location:
-            loc_lower = filter_location.lower()
-            matches = [p for p in matches if loc_lower in p.location.lower()]
+        location = tool_input.get("location")
+        if location:
+            loc_lower = location.lower()
+            if loc_lower == "remote":
+                matches = [p for p in matches if p.remote]
+            else:
+                matches = [p for p in matches if loc_lower in p.location.lower()]
 
-        filter_remote = tool_input.get("filter_remote")
-        if filter_remote:
-            matches = [p for p in matches if p.remote]
+        min_salary = tool_input.get("min_salary")
+        if min_salary is not None:
+            matches = [
+                p for p in matches
+                if p.salary_range_high is not None
+                and p.salary_range_high >= min_salary
+            ]
 
         if not matches:
             return "No postings match your filters."
@@ -571,23 +309,38 @@ class JobSeekerAgent(BaseAgent):
         return f"Found {len(matches)} posting(s):\n\n" + "\n\n".join(formatted)
 
     async def _write_resume(self, tool_input: dict[str, Any]) -> str:
-        """Create a new resume version and update the agent's state."""
-        full_text = tool_input["full_text"]
-        trigger = tool_input["trigger"]
+        """Create a new resume version and update the agent's state.
+
+        Args:
+            tool_input: Must contain "resume_text". Optionally
+                "target_posting_id".
+
+        Returns:
+            Confirmation string with the resume version ID.
+        """
+        resume_text = tool_input["resume_text"]
         target_posting_id = tool_input.get("target_posting_id")
+
+        trigger: Literal["initial", "general_rewrite", "tailored"]
+        if target_posting_id:
+            trigger = "tailored"
+        elif self._state.current_resume:
+            trigger = "general_rewrite"
+        else:
+            trigger = "initial"
 
         version_id = f"resume-{uuid.uuid4().hex[:8]}"
         version = ResumeVersion(
             id=version_id,
             seeker_id=self.profile.id,
             round_created=self._state.round_number,
-            full_text=full_text,
+            full_text=resume_text,
             trigger=trigger,
             target_posting_id=target_posting_id,
             state_summary_at_creation=self._state_summary(),
         )
         self.resume_versions.append(version)
-        self._state.current_resume = full_text
+        self._state.current_resume = resume_text
 
         logger.info(
             "[%s] wrote resume %s (trigger=%s)",
@@ -600,7 +353,15 @@ class JobSeekerAgent(BaseAgent):
         return f"Resume saved ({version_id})."
 
     async def _submit_application(self, tool_input: dict[str, Any]) -> str:
-        """Submit an application to a posting using the current resume."""
+        """Submit an application to a posting using the current resume.
+
+        Args:
+            tool_input: Must contain "posting_id".
+
+        Returns:
+            Confirmation string with the application ID, or an error
+            if the resume is missing or the posting is invalid.
+        """
         posting_id = tool_input["posting_id"]
 
         if not self._state.current_resume:
@@ -613,14 +374,8 @@ class JobSeekerAgent(BaseAgent):
         if posting.status != "open":
             return f"Posting '{posting_id}' is no longer accepting applications."
 
-        # Background companies have no recruiter. The engine handles
-        # their applications deterministically based on company
-        # parameters. Agent-backed companies route through a real
-        # recruiter agent.
         recruiter_id = self._recruiter_map.get(posting_id)
 
-        # Use the most recent resume version, or a placeholder if the
-        # resume was set before this turn (e.g. loaded from state)
         resume_version_id = (
             self.resume_versions[-1].id
             if self.resume_versions
@@ -638,7 +393,6 @@ class JobSeekerAgent(BaseAgent):
         )
         self.applications.append(application)
 
-        # Update pipeline state
         self._state.current_pipeline.append(
             {
                 "application_id": app_id,
@@ -649,8 +403,7 @@ class JobSeekerAgent(BaseAgent):
                 "round_submitted": self._state.round_number,
             }
         )
-        total = self._state.metrics.get("total_applications", 0)
-        self._state.metrics["total_applications"] = total + 1
+        self._state.total_applications += 1
 
         logger.info(
             "[%s] submitted application %s to %s (%s)",
@@ -666,12 +419,13 @@ class JobSeekerAgent(BaseAgent):
 
         Used as metadata on resume and cover letter versions to capture
         behavioral context at the time of writing.
+
+        Returns:
+            Single-line summary with round, application count, and savings.
         """
         s = self._state
-        p = self._seeker
-        total_apps = s.metrics.get("total_applications", 0)
         return (
             f"Round {s.round_number}, "
-            f"{total_apps} applications submitted, "
-            f"${p.savings:,} savings remaining"
+            f"{s.total_applications} applications submitted, "
+            f"${s.savings:,} savings remaining"
         )

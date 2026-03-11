@@ -23,7 +23,7 @@ from anthropic import (
 from anthropic.types import Message, ToolUseBlock
 
 from engine.prompt_builder import PromptBuilder
-from schemas.agents import AgentProfile
+from schemas.profiles import AgentProfile
 from schemas.config import RunConfig
 
 logger = logging.getLogger(__name__)
@@ -343,7 +343,8 @@ class BaseAgent(ABC):
         """
         if result.tool_calls_made >= self._config.tool_call_soft_cap:
             result.soft_cap_hit = True
-            tool_results[-1]["content"] += _SOFT_CAP_NUDGE
+            if tool_results:
+                tool_results[-1]["content"] += _SOFT_CAP_NUDGE
             logger.info(
                 "[%s] soft cap hit at %d tool calls",
                 self.profile.id,
