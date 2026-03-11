@@ -2,7 +2,7 @@
 
 Welcome to job-sim. The goal of this project is to simulate the realities of today's tech job market and watch how AI agents deal with it.
 
-The tech job market right now is defined by ghost jobs that were never meant to be filled, applications that disappear into the void, recruiter conversations that lead nowhere, and roles that ask for five years of experience while paying entry level. For the people navigating it, the whole process feels like a black box where getting a screen at all seems down to luck. And when a screen does come through, it's followed by multi-round interviews, leetcode problems, system design questions, and take-home assignments, each company with its own gauntlet.
+The tech job market right now is defined by ghost jobs that were never meant to be filled, applications that disappear into the void, recruiter conversations that lead nowhere, and entry level roles that ask for at least 3+ years of experience. For the people navigating it, the whole process feels like a black box where getting a screen at all seems down to luck. And when a screen does come through, it's followed by multi-round interviews, leetcode problems, system design questions, and take-home assignments, each company with its own daunting process.
 
 This project takes those exact conditions and drops AI agents into them to see what happens.
 
