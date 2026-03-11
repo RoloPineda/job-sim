@@ -21,17 +21,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, UUIDPrimaryKeyMixin
 
-_VALID_APPLICATION_STATUSES = (
-    "pending", "reviewed", "rejected", "advanced", "ghosted"
-)
+_VALID_APPLICATION_STATUSES = ("pending", "reviewed", "rejected", "advanced", "ghosted")
 _VALID_RESUME_TRIGGERS = ("initial", "general_rewrite", "tailored")
 _VALID_COVER_LETTER_TRIGGERS = ("initial", "tailored")
 _VALID_INTERVIEWER_TYPES = ("recruiter", "hiring_manager")
 _VALID_INTERVIEW_OUTCOMES = ("advanced", "rejected", "undecided")
 _VALID_OFFER_OUTCOMES = ("accepted", "declined", "negotiating")
-_VALID_MESSAGE_TYPES = (
-    "candidate_forward", "feedback", "nudge", "role_change_request"
-)
+_VALID_MESSAGE_TYPES = ("candidate_forward", "feedback", "nudge", "role_change_request")
 
 
 class Application(UUIDPrimaryKeyMixin, Base):
@@ -88,24 +84,18 @@ class Application(UUIDPrimaryKeyMixin, Base):
         Uuid, ForeignKey("cover_letter_versions.id")
     )
     round_submitted: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="pending"
-    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     status_updated_round: Mapped[int | None] = mapped_column(Integer)
 
     posting: Mapped["JobPosting"] = relationship()
     resume_version: Mapped["ResumeVersion"] = relationship()
     cover_letter_version: Mapped["CoverLetterVersion | None"] = relationship()
-    interviews: Mapped[list["Interview"]] = relationship(
-        back_populates="application"
-    )
-    offers: Mapped[list["Offer"]] = relationship(
-        back_populates="application"
-    )
+    interviews: Mapped[list["Interview"]] = relationship(back_populates="application")
+    offers: Mapped[list["Offer"]] = relationship(back_populates="application")
 
 
 class ResumeVersion(UUIDPrimaryKeyMixin, Base):
-    """A single version of a job seeker's resume.
+    """A single version of a jobseeker's resume.
 
     Append-only. Every resume write creates a new row.
 
@@ -144,13 +134,11 @@ class ResumeVersion(UUIDPrimaryKeyMixin, Base):
     target_posting_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("job_postings.id")
     )
-    state_summary_at_creation: Mapped[str] = mapped_column(
-        Text, nullable=False
-    )
+    state_summary_at_creation: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class CoverLetterVersion(UUIDPrimaryKeyMixin, Base):
-    """A single version of a job seeker's cover letter.
+    """A single version of a jobseeker's cover letter.
 
     Append-only. Always tied to a specific posting.
 
@@ -188,9 +176,7 @@ class CoverLetterVersion(UUIDPrimaryKeyMixin, Base):
     target_posting_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("job_postings.id"), nullable=False
     )
-    state_summary_at_creation: Mapped[str] = mapped_column(
-        Text, nullable=False
-    )
+    state_summary_at_creation: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class Interview(UUIDPrimaryKeyMixin, Base):
@@ -253,9 +239,7 @@ class Interview(UUIDPrimaryKeyMixin, Base):
         String(20), nullable=False, default="undecided"
     )
 
-    application: Mapped["Application"] = relationship(
-        back_populates="interviews"
-    )
+    application: Mapped["Application"] = relationship(back_populates="interviews")
 
 
 class Offer(UUIDPrimaryKeyMixin, Base):
@@ -308,9 +292,7 @@ class Offer(UUIDPrimaryKeyMixin, Base):
     )
     round_resolved: Mapped[int | None] = mapped_column(Integer)
 
-    application: Mapped["Application"] = relationship(
-        back_populates="offers"
-    )
+    application: Mapped["Application"] = relationship(back_populates="offers")
 
 
 class RecruiterHMMessage(UUIDPrimaryKeyMixin, Base):

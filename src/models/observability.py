@@ -43,7 +43,9 @@ class StateSnapshot(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "state_snapshots"
     __table_args__ = (
         UniqueConstraint(
-            "run_id", "agent_id", "round_number",
+            "run_id",
+            "agent_id",
+            "round_number",
             name="uq_state_snapshots_run_agent_round",
         ),
         CheckConstraint(
@@ -60,9 +62,7 @@ class StateSnapshot(UUIDPrimaryKeyMixin, Base):
     )
     agent_type: Mapped[str] = mapped_column(String(20), nullable=False)
     round_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    state_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False
-    )
+    state_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -132,14 +132,10 @@ class Event(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    agent_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("agents.id")
-    )
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("agents.id"))
     round_number: Mapped[int] = mapped_column(Integer, nullable=False)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    details: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default=dict
-    )
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

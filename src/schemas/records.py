@@ -1,4 +1,4 @@
-"""Transactional record schemas for the Candor simulation.
+"""Transactional record schemas for the job simulation.
 
 These schemas capture events, interactions, and state changes that occur
 during a simulation run. All records are append-only unless explicitly
@@ -40,7 +40,8 @@ class ApplicationRecord(BaseModel):
     id: str
     seeker_id: str
     posting_id: str
-    recruiter_id: str
+    # recruiter id is optional since background companies won't have a recruiter
+    recruiter_id: str | None = None
     resume_version_id: str
     cover_letter_version_id: str | None = None
     round_submitted: int = Field(ge=0)
@@ -51,7 +52,7 @@ class ApplicationRecord(BaseModel):
 
 
 class ResumeVersion(BaseModel):
-    """A single version of a job seeker's resume.
+    """A single version of a jobseeker's resume.
 
     Append-only. Every call to write_resume creates a new row. The
     trigger field records why the rewrite happened, which is itself
@@ -79,7 +80,7 @@ class ResumeVersion(BaseModel):
 
 
 class CoverLetterVersion(BaseModel):
-    """A single version of a job seeker's cover letter.
+    """A single version of a jobseeker's cover letter.
 
     Append-only. Unlike resumes, cover letters are always tied to a
     specific posting.

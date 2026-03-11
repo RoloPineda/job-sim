@@ -21,13 +21,15 @@ _VALID_SELF_AWARENESS = ("accurate", "overconfident", "underconfident")
 _VALID_COMMUNICATION_ABILITY = ("strong", "average", "weak")
 _VALID_SENIORITIES = ("junior", "mid", "senior", "lead", "staff")
 _VALID_LOCATION_FLEXIBILITY = ("rigid", "moderate", "flexible")
-_VALID_REMOTE_PREFERENCE = (
-    "remote_only", "hybrid", "onsite", "no_preference"
-)
+_VALID_REMOTE_PREFERENCE = ("remote_only", "hybrid", "onsite", "no_preference")
 _VALID_EXPERIENCE_LEVELS = ("junior", "mid", "senior")
 _VALID_TEAM_SITUATIONS = ("understaffed", "stable", "growing", "rebuilding")
 _VALID_MANAGEMENT_STYLES = (
-    "detailed_feedback", "vague", "responsive", "slow", "micromanager"
+    "detailed_feedback",
+    "vague",
+    "responsive",
+    "slow",
+    "micromanager",
 )
 _VALID_FEEDBACK_CLARITY = ("clear", "vague", "contradictory")
 
@@ -73,7 +75,7 @@ class Agent(UUIDPrimaryKeyMixin, Base):
 
 
 class JobSeeker(Agent):
-    """Job seeker agent with skills, preferences, and financial state.
+    """Jobseeker agent with skills, preferences, and financial state.
 
     ``education_history`` and ``work_history`` are stored as JSONB
     since they are value objects without independent identity.
@@ -147,30 +149,18 @@ class JobSeeker(Agent):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("agents.id"), primary_key=True
     )
-    education_history: Mapped[list[Any]] = mapped_column(
-        JSONB, nullable=False
-    )
-    actual_skills: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False
-    )
+    education_history: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
+    actual_skills: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     work_history: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
     experience_years: Mapped[int] = mapped_column(Integer, nullable=False)
-    perceived_skills: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False
-    )
+    perceived_skills: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     self_awareness: Mapped[str] = mapped_column(String(20), nullable=False)
-    communication_ability: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )
-    target_roles: Mapped[list[str]] = mapped_column(
-        ARRAY(Text), nullable=False
-    )
+    communication_ability: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_roles: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     target_seniority: Mapped[str] = mapped_column(String(20), nullable=False)
     target_comp_low: Mapped[int] = mapped_column(Integer, nullable=False)
     target_comp_high: Mapped[int] = mapped_column(Integer, nullable=False)
-    location_flexibility: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )
+    location_flexibility: Mapped[str] = mapped_column(String(20), nullable=False)
     remote_preference: Mapped[str] = mapped_column(String(20), nullable=False)
     savings: Mapped[int] = mapped_column(Integer, nullable=False)
     burn_rate: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -274,17 +264,11 @@ class HiringManager(Agent):
     team_situation: Mapped[str] = mapped_column(String(20), nullable=False)
     management_style: Mapped[str] = mapped_column(String(20), nullable=False)
     technical_bar: Mapped[str] = mapped_column(Text, nullable=False)
-    interview_capacity_per_round: Mapped[int] = mapped_column(
-        Integer, nullable=False
-    )
-    past_hiring_description: Mapped[str] = mapped_column(
-        Text, nullable=False
-    )
+    interview_capacity_per_round: Mapped[int] = mapped_column(Integer, nullable=False)
+    past_hiring_description: Mapped[str] = mapped_column(Text, nullable=False)
     feedback_clarity: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    company: Mapped["Company"] = relationship(
-        back_populates="hiring_managers"
-    )
+    company: Mapped["Company"] = relationship(back_populates="hiring_managers")
     managed_postings: Mapped[list["JobPosting"]] = relationship(
         back_populates="hiring_manager",
         foreign_keys="JobPosting.hiring_manager_id",

@@ -25,8 +25,8 @@
 
 ## CoverLetterVersion
 
-- Id: Unique identifier for this cover letter version.
-- Seeker id: Which job seeker wrote this cover letter.
+- ID: Unique identifier for this cover letter version.
+- Seeker id: Which jobseeker wrote this cover letter.
 - Round created: The simulation round when this was written.
 - Full text: The complete cover letter text.
 - Trigger: What caused the write (initial, tailored). Simpler than resume triggers since cover letters are almost always written for a specific posting. There's no "general rewrite" equivalent.
@@ -37,7 +37,7 @@
 
 ## ReflectionInterviewRecord
 
-- Id: Unique identifier for this interview.
+- ID: Unique identifier for this interview.
 - Application id: Links back to the application that led to this interview. From there we can trace the full chain back to the seeker, posting, and resume used.
 - Interviewer id: Who conducted the interview. Could be a recruiter or hiring manager.
 - Interviewer type: Whether the interviewer is a recruiter or hiring manager. This matters because the nature of the interview differs. A recruiter interview is typically a phone screen or culture fit check, while a hiring manager interview is usually technical or role-specific.
@@ -52,7 +52,7 @@
 
 ## OfferRecord
 
-- Id: Unique identifier for this offer.
+- ID: Unique identifier for this offer.
 - Application id: Links back to the full application chain.
 - Round extended: The simulation round when the offer was made.
 - Base salary: The core compensation number being negotiated. In dollars. Int.
@@ -66,7 +66,7 @@
 
 ## RecruiterHMMessage
 
-- Id: Unique identifier for this message.
+- ID: Unique identifier for this message.
 - Sender id: Who sent the message. Could be the recruiter or the hiring manager.
 - Receiver id: Who received the message.
 - Round: The simulation round when the message was sent.
@@ -83,7 +83,7 @@ This is the primary data source for tracking behavioral progression over time. Y
 - Agent id: Which agent this snapshot belongs to. 
 - Agent type: What kind of agent (job_seeker, recruiter, hiring_manager). Included here so we can filter snapshots by agent type without joining back to the agent profile. 
 - Round number: Which simulation round this snapshot was taken at. 
-- State json: Serialized AgentState as a dict. This is the complete mutable state at that point in time. Written at the end of every round for every agent. 
+- State JSON: Serialized AgentState as a dict. This is the complete mutable state at that point in time. Written at the end of every round for every agent. 
 - Created at: Timestamp when the snapshot was saved. Useful for debugging and ordering even though round_number already provides logical ordering.
 
 --- 
@@ -100,7 +100,7 @@ This is the primary data source for tracking behavioral progression over time. Y
 ---
 ## EventEntry:
 
-- Id: Unique identifier for this event. 
+- ID: Unique identifier for this event. 
 - Agent id: Which agent this event relates to, or None for system-level events that aren't tied to a specific agent (like a posting expiring). 
 - Round number: Which simulation round this event occurred in. 
 - Event type: What happened. This is a catch-all covering things like application_submitted, rejection_sent, interview_scheduled, offer_extended, posting_closed, resume_updated, tool_called, and anything else that occurs during the simulation. 
