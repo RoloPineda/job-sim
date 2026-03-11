@@ -3,7 +3,7 @@
 
 ## CompanyProfile
 Keeping this immutable for now. Companies are unlikely to change their hiring behaviors during a period of 3-6 months unless major events happen.
-- Id: Unique identifier for the company.
+- ID: Unique identifier for the company.
 - Name: Company name.
 - Industry: What sector the company operates in. Using literal to prevent situations like "tech", "Tech", "technology"
 - Size: Scale of the company. Keeping it as string since saying "startup" signals behavior better than having a number and then having to map that to a category. 
