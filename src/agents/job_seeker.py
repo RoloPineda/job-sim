@@ -128,7 +128,6 @@ class JobSeekerAgent(BaseAgent):
         config: RunConfig,
         state: JobSeekerState,
         postings: list[JobPosting],
-        recruiter_map: dict[str, str],
         *,
         client: AsyncAnthropic | None = None,
     ) -> None:
@@ -149,7 +148,6 @@ class JobSeekerAgent(BaseAgent):
         self._seeker = profile
         self._state = state
         self._postings = {p.id: p for p in postings}
-        self._recruiter_map = recruiter_map
 
         self.resume_versions: list[ResumeVersion] = []
         self.applications: list[ApplicationRecord] = []
@@ -374,8 +372,6 @@ class JobSeekerAgent(BaseAgent):
         if posting.status != "open":
             return f"Posting '{posting_id}' is no longer accepting applications."
 
-        recruiter_id = self._recruiter_map.get(posting_id)
-
         resume_version_id = (
             self.resume_versions[-1].id
             if self.resume_versions
@@ -387,7 +383,7 @@ class JobSeekerAgent(BaseAgent):
             id=app_id,
             seeker_id=self.profile.id,
             posting_id=posting_id,
-            recruiter_id=recruiter_id,
+            recruiter_id=None, # This is saved by the engine when saving the record
             resume_version_id=resume_version_id,
             round_submitted=self._state.round_number,
         )
