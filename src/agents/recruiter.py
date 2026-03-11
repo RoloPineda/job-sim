@@ -1,6 +1,6 @@
 """Recruiter agent with tools for screening, forwarding, and communication.
 
-Manages the hiring pipeline between job seekers and hiring managers:
+Manages the hiring pipeline between jobseekers and hiring managers:
 screens incoming applications, forwards promising candidates, sends
 status updates, and nudges unresponsive hiring managers.
 """

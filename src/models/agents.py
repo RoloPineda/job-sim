@@ -75,7 +75,7 @@ class Agent(UUIDPrimaryKeyMixin, Base):
 
 
 class JobSeeker(Agent):
-    """Job seeker agent with skills, preferences, and financial state.
+    """Jobseeker agent with skills, preferences, and financial state.
 
     ``education_history`` and ``work_history`` are stored as JSONB
     since they are value objects without independent identity.

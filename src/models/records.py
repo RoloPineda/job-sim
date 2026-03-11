@@ -95,7 +95,7 @@ class Application(UUIDPrimaryKeyMixin, Base):
 
 
 class ResumeVersion(UUIDPrimaryKeyMixin, Base):
-    """A single version of a job seeker's resume.
+    """A single version of a jobseeker's resume.
 
     Append-only. Every resume write creates a new row.
 
@@ -138,7 +138,7 @@ class ResumeVersion(UUIDPrimaryKeyMixin, Base):
 
 
 class CoverLetterVersion(UUIDPrimaryKeyMixin, Base):
-    """A single version of a job seeker's cover letter.
+    """A single version of a jobseeker's cover letter.
 
     Append-only. Always tied to a specific posting.
 

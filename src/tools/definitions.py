@@ -887,7 +887,7 @@ _REQUEST_ROLE_CHANGE: dict[str, Any] = {
 
 
 def job_seeker_tools() -> list[dict[str, Any]]:
-    """Returns the full tool set for a job seeker agent."""
+    """Returns the full tool set for a jobseeker agent."""
     return copy.deepcopy(
         [
             _BROWSE_JOB_BOARD,
@@ -1411,7 +1411,7 @@ _REQUEST_ROLE_CHANGE: dict[str, Any] = {
 
 
 def job_seeker_tools() -> list[dict[str, Any]]:
-    """Returns the full tool set for a job seeker agent."""
+    """Returns the full tool set for a jobseeker agent."""
     return [
         _BROWSE_JOB_BOARD,
         _RESEARCH_COMPANY,
