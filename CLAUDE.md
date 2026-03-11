@@ -8,7 +8,7 @@ job-sim is an AI-agent simulation of the hiring market. AI agents (jobseekers, r
 
 ## Build & Run Commands
 
-- **Package manager:** uv (Python 3.14+)
+- **Package manager:** uv (Python 3.11+)
 - **Install deps:** `uv sync`
 - **Run tests:** `uv run pytest`
 - **Lint:** `uv run ruff check`
