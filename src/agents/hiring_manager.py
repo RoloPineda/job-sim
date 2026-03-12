@@ -214,7 +214,7 @@ class HiringManagerAgent(BaseAgent):
         lines = [f"Candidates awaiting your decision ({len(pending)}):"]
         for app in pending:
             posting = self._postings.get(app.posting_id)
-            seeker = self._seeker_info.get(app.seeker_id, {})
+            seeker = self._seeker_info.get(app.job_seeker_id, {})
             candidate_name = seeker.get("name", "Unknown")
             role = posting.title if posting else app.posting_id
 
@@ -368,7 +368,7 @@ class HiringManagerAgent(BaseAgent):
         formatted = []
         for app in candidates:
             posting = self._postings.get(app.posting_id)
-            seeker = self._seeker_info.get(app.seeker_id, {})
+            seeker = self._seeker_info.get(app.job_seeker_id, {})
             candidate_name = seeker.get("name", "Unknown")
 
             lines = [
@@ -487,7 +487,7 @@ class HiringManagerAgent(BaseAgent):
 
         posting = self._postings.get(app.posting_id)
         posting_title = posting.title if posting else app.posting_id
-        seeker = self._seeker_info.get(app.seeker_id, {})
+        seeker = self._seeker_info.get(app.job_seeker_id, {})
         candidate_name = seeker.get("name", "Unknown")
 
         app.status = "rejected"
@@ -516,7 +516,7 @@ class HiringManagerAgent(BaseAgent):
         event_id = f"evt-{uuid.uuid4().hex[:8]}"
         event = EventEntry(
             id=event_id,
-            agent_id=app.seeker_id,
+            agent_id=app.job_seeker_id,
             round_number=self._state.round_number,
             event_type="application_rejected",
             details={

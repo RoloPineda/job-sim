@@ -37,7 +37,7 @@ class Application(UUIDPrimaryKeyMixin, Base):
 
     Attributes:
         run_id: Simulation run this application belongs to.
-        seeker_id: Job seeker who submitted the application.
+        job_seeker_id: Jobseeker who submitted the application.
         posting_id: Posting the application targets.
         recruiter_id: Recruiter responsible for reviewing.
         resume_version_id: Resume version submitted with the
@@ -68,7 +68,7 @@ class Application(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    seeker_id: Mapped[uuid.UUID] = mapped_column(
+    job_seeker_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("agents.id"), nullable=False
     )
     posting_id: Mapped[uuid.UUID] = mapped_column(
@@ -101,7 +101,7 @@ class ResumeVersion(UUIDPrimaryKeyMixin, Base):
 
     Attributes:
         run_id: Simulation run this version belongs to.
-        seeker_id: Job seeker who wrote this resume.
+        job_seeker_id: Job seeker who wrote this resume.
         round_created: Simulation round when written.
         full_text: Complete resume text.
         trigger: What caused the rewrite.
@@ -125,7 +125,7 @@ class ResumeVersion(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    seeker_id: Mapped[uuid.UUID] = mapped_column(
+    job_seeker_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("agents.id"), nullable=False
     )
     round_created: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -144,7 +144,7 @@ class CoverLetterVersion(UUIDPrimaryKeyMixin, Base):
 
     Attributes:
         run_id: Simulation run this version belongs to.
-        seeker_id: Job seeker who wrote this cover letter.
+        job_seeker_id: Jobseeker who wrote this cover letter.
         round_created: Simulation round when written.
         full_text: Complete cover letter text.
         trigger: What caused the write.
@@ -167,7 +167,7 @@ class CoverLetterVersion(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    seeker_id: Mapped[uuid.UUID] = mapped_column(
+    job_seeker_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("agents.id"), nullable=False
     )
     round_created: Mapped[int] = mapped_column(Integer, nullable=False)

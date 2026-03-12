@@ -129,10 +129,10 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
         company_id: Company that owns this posting.
         hiring_manager_id: Hiring manager responsible for this role.
         recruiter_id: Recruiter assigned to manage this posting.
-        title: Job title as displayed to seekers.
+        title: Job title as displayed to jobseekers.
         department: Team or org the role sits in.
-        description: Freeform job description visible to seekers.
-        requirements: Stated requirements seekers evaluate against.
+        description: Freeform job description visible to jobseekers.
+        requirements: Stated requirements jobseekers evaluate against.
         salary_range_low: Bottom of posted salary range, or None if
             undisclosed.
         salary_range_high: Top of posted salary range, or None if

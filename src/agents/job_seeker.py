@@ -381,7 +381,7 @@ class JobSeekerAgent(BaseAgent):
         app_id = f"app-{uuid.uuid4().hex[:8]}"
         application = ApplicationRecord(
             id=app_id,
-            seeker_id=self.profile.id,
+            job_seeker_id=self.profile.id,
             posting_id=posting_id,
             recruiter_id=None, # This is saved by the engine when saving the record
             resume_version_id=resume_version_id,
