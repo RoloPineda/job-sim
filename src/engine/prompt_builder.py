@@ -5,8 +5,8 @@ API-ready message structures. This module handles formatting only, all
 content generation (context building, history compression) happens
 elsewhere.
 """
-
-from typing import Any, NotRequired, TypedDict
+from anthropic.types import MessageParam
+from typing import Any, NotRequired, TypedDict, cast, Literal
 
 from schemas.profiles import AgentProfile
 from schemas.config import RunConfig
@@ -66,7 +66,7 @@ class MessagePayload(TypedDict):
     """Complete payload for a single Anthropic Messages API call."""
 
     system: str
-    messages: list[dict[str, str]]
+    messages: list[MessageParam]
     tools: NotRequired[list[dict[str, Any]]]
 
 
@@ -248,14 +248,14 @@ class PromptBuilder:
                 "bringing your remaining points to a close."
             )
 
-        return MessagePayload(system=system, messages=messages)
+        return MessagePayload(system=system, messages=cast(list[MessageParam], messages))
 
     def _build_interview_messages(
         self,
         speaker_name: str,
         role_context: str,
         transcript: list[dict[str, str]],
-    ) -> list[dict[str, str]]:
+    ) -> list[MessageParam]:
         """Convert a transcript into API-ready messages.
 
         Maps speaker names to API roles (the current speaker becomes
@@ -273,10 +273,10 @@ class PromptBuilder:
             Messages list ready for the API, guaranteed to end with a
             user message.
         """
-        raw: list[dict[str, str]] = [{"role": "user", "content": role_context}]
+        raw: list[MessageParam] = [{"role": "user", "content": role_context}]
         for entry in transcript:
             role = "assistant" if entry["speaker"] == speaker_name else "user"
-            raw.append({"role": role, "content": entry["content"]})
+            role: Literal["user", "assistant"] = "assistant" if entry["speaker"] == speaker_name else "user"
 
         messages = self._merge_consecutive_roles(raw)
 
@@ -290,8 +290,8 @@ class PromptBuilder:
 
     @staticmethod
     def _merge_consecutive_roles(
-        messages: list[dict[str, str]],
-    ) -> list[dict[str, str]]:
+        messages: list[MessageParam],
+    ) -> list[MessageParam]:
         """Merge consecutive messages with the same role.
 
         The transcript stores one entry per speaker turn, but a speaker
@@ -307,7 +307,7 @@ class PromptBuilder:
         Returns:
             New list with consecutive same-role messages merged.
         """
-        merged: list[dict[str, str]] = [messages[0]]
+        merged: list[MessageParam] = [messages[0]]
         for msg in messages[1:]:
             if msg["role"] == merged[-1]["role"]:
                 merged[-1] = {
