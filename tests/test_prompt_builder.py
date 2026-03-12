@@ -201,6 +201,38 @@ class TestBuildActionPayload:
         assert "Got a callback" in payload["messages"][0]["content"]
 
 
+class TestExtractText:
+    def test_plain_string(self):
+        assert PromptBuilder._extract_text("hello world") == "hello world"
+
+    def test_single_text_block(self):
+        blocks = [{"type": "text", "text": "only block"}]
+        assert PromptBuilder._extract_text(blocks) == "only block"
+
+    def test_multiple_text_blocks(self):
+        blocks = [
+            {"type": "text", "text": "first"},
+            {"type": "text", "text": "second"},
+        ]
+        assert PromptBuilder._extract_text(blocks) == "first\nsecond"
+
+    def test_mixed_block_types(self):
+        blocks = [
+            {"type": "text", "text": "before"},
+            {"type": "tool_use", "id": "t1", "name": "search", "input": {}},
+            {"type": "text", "text": "after"},
+        ]
+        assert PromptBuilder._extract_text(blocks) == "before\nafter"
+
+    def test_empty_list(self):
+        assert PromptBuilder._extract_text([]) == ""
+
+    def test_text_type_block_missing_text_key(self):
+        blocks = [{"type": "text"}]
+        result = PromptBuilder._extract_text(blocks)
+        assert result == ""
+
+
 class TestMergeConsecutiveRoles:
     def test_single_message_unchanged(self):
         msgs = [{"role": "user", "content": "hello"}]
@@ -249,6 +281,96 @@ class TestMergeConsecutiveRoles:
         assert result[0]["role"] == "user"
         assert result[1]["role"] == "assistant"
         assert result[2]["role"] == "user"
+
+    def test_merges_list_of_blocks_content(self):
+        msgs = [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "from blocks"}],
+            },
+            {"role": "user", "content": "plain string"},
+        ]
+        result = PromptBuilder._merge_consecutive_roles(msgs)
+        assert len(result) == 1
+        assert "from blocks" in result[0]["content"]
+        assert "plain string" in result[0]["content"]
+
+    def test_empty_list_raises_index_error(self):
+        """Private method assumes at least one message; empty input crashes."""
+        with pytest.raises(IndexError):
+            PromptBuilder._merge_consecutive_roles([])
+
+
+class TestBuildInterviewMessages:
+    def test_empty_transcript_returns_role_context_only(self, builder):
+        msgs = builder._build_interview_messages("Alice", "You are Alice.", [])
+        assert len(msgs) == 1
+        assert msgs[0]["role"] == "user"
+        assert msgs[0]["content"] == "You are Alice."
+
+    def test_simple_two_speaker_transcript(self, builder):
+        transcript = [
+            {"speaker": "Bob", "content": "Hi Alice."},
+            {"speaker": "Alice", "content": "Hi Bob."},
+            {"speaker": "Bob", "content": "How are you?"},
+        ]
+        msgs = builder._build_interview_messages(
+            "Alice", "Role context.", transcript
+        )
+        assert msgs[0]["role"] == "user"
+        assert "Role context." in msgs[0]["content"]
+        assert msgs[1]["role"] == "assistant"
+        assert msgs[2]["role"] == "user"
+
+    def test_ends_on_current_speaker_appends_continue(self, builder):
+        transcript = [
+            {"speaker": "Bob", "content": "Question?"},
+            {"speaker": "Alice", "content": "Answer."},
+        ]
+        msgs = builder._build_interview_messages(
+            "Alice", "context", transcript
+        )
+        assert msgs[-1]["role"] == "user"
+        assert msgs[-1]["content"] == "Please continue."
+
+    def test_consecutive_same_speaker_merged(self, builder):
+        transcript = [
+            {"speaker": "Bob", "content": "Part one."},
+            {"speaker": "Bob", "content": "Part two."},
+        ]
+        msgs = builder._build_interview_messages(
+            "Alice", "context", transcript
+        )
+        # role_context (user) + Bob's two entries (user) merge into one
+        assert len(msgs) == 1
+        assert "context" in msgs[0]["content"]
+        assert "Part one." in msgs[0]["content"]
+        assert "Part two." in msgs[0]["content"]
+
+    def test_first_message_is_role_context(self, builder):
+        transcript = [{"speaker": "Bob", "content": "Hello."}]
+        msgs = builder._build_interview_messages(
+            "Alice", "Opening context.", transcript
+        )
+        assert "Opening context." in msgs[0]["content"]
+
+    def test_last_message_always_user_role(self, builder):
+        # Transcript ending on the current speaker (assistant)
+        transcript = [
+            {"speaker": "Bob", "content": "Q?"},
+            {"speaker": "Alice", "content": "A."},
+        ]
+        msgs = builder._build_interview_messages(
+            "Alice", "ctx", transcript
+        )
+        assert msgs[-1]["role"] == "user"
+
+        # Transcript ending on the other speaker (already user)
+        transcript2 = [{"speaker": "Bob", "content": "Q?"}]
+        msgs2 = builder._build_interview_messages(
+            "Alice", "ctx", transcript2
+        )
+        assert msgs2[-1]["role"] == "user"
 
 
 class TestBuildInterviewTurn:
@@ -345,6 +467,52 @@ class TestBuildInterviewTurn:
             6,
         )
         assert "wrapping up" in payload["messages"][-1]["content"]
+
+    def test_end_to_end_payload_shape(self, builder, seeker_profile):
+        """Integration test: realistic inputs produce a valid payload."""
+        transcript = [
+            {"speaker": "Dana Reeves", "content": "Welcome, Sarah. Tell me about yourself."},
+            {"speaker": "Sarah Chen", "content": "Thanks! I have 5 years of backend experience."},
+            {"speaker": "Dana Reeves", "content": "What drew you to this role?"},
+            {"speaker": "Sarah Chen", "content": "The technical challenges and team culture."},
+            {"speaker": "Dana Reeves", "content": "Describe a tough debugging scenario."},
+        ]
+        payload = builder.build_interview_turn(
+            seeker_profile,
+            "You are interviewing for Senior Engineer at TechCo with Dana Reeves.",
+            transcript,
+            3,
+        )
+
+        # Top-level keys
+        assert "system" in payload
+        assert "messages" in payload
+        assert "tools" not in payload
+
+        # System prompt is a non-empty string derived from the profile
+        assert isinstance(payload["system"], str)
+        assert "Sarah Chen" in payload["system"]
+
+        # Messages list is non-empty
+        messages = payload["messages"]
+        assert len(messages) >= 1
+
+        # Every message has the required keys with valid roles
+        for msg in messages:
+            assert msg["role"] in ("user", "assistant")
+            assert isinstance(msg["content"], str)
+            assert len(msg["content"]) > 0
+
+        # Strict user/assistant alternation
+        for i in range(1, len(messages)):
+            assert messages[i]["role"] != messages[i - 1]["role"]
+
+        # First message is always user (contains role context)
+        assert messages[0]["role"] == "user"
+        assert "Senior Engineer" in messages[0]["content"]
+
+        # Last message is always user
+        assert messages[-1]["role"] == "user"
 
 
 class TestBuildReflectionPrompt:
