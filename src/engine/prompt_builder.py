@@ -275,8 +275,8 @@ class PromptBuilder:
         """
         raw: list[MessageParam] = [{"role": "user", "content": role_context}]
         for entry in transcript:
-            role = "assistant" if entry["speaker"] == speaker_name else "user"
             role: Literal["user", "assistant"] = "assistant" if entry["speaker"] == speaker_name else "user"
+            raw.append({"role": role, "content": entry["content"]})
 
         messages = self._merge_consecutive_roles(raw)
 
@@ -287,6 +287,27 @@ class PromptBuilder:
             messages.append({"role": "user", "content": "Please continue."})
 
         return messages
+
+    @staticmethod
+    def _extract_text(content: str | list[Any]) -> str:
+        """Extracts plain text from a MessageParam content field.
+
+        Handles both the simple string form and the list-of-blocks form
+        that the Anthropic API supports.
+
+        Args:
+            content: Either a plain string or a list of content blocks,
+                where text blocks have a "text" key.
+
+        Returns:
+            The concatenated text content.
+        """
+        if isinstance(content, str):
+            return content
+        return "\n".join(
+            block.get("text", "") for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
 
     @staticmethod
     def _merge_consecutive_roles(
@@ -310,9 +331,11 @@ class PromptBuilder:
         merged: list[MessageParam] = [messages[0]]
         for msg in messages[1:]:
             if msg["role"] == merged[-1]["role"]:
+                existing = PromptBuilder._extract_text(merged[-1]["content"])
+                new = PromptBuilder._extract_text(msg["content"])
                 merged[-1] = {
                     "role": msg["role"],
-                    "content": merged[-1]["content"] + "\n\n" + msg["content"],
+                    "content": existing + "\n\n" + new,
                 }
             else:
                 merged.append(msg)
