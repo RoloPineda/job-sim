@@ -16,10 +16,12 @@ from anthropic import AsyncAnthropic
 from agents.base import BaseAgent
 from schemas.company import JobPosting
 from schemas.config import RunConfig
+from schemas.interview import InterviewData, format_transcript
 from schemas.profiles import HiringManagerProfile
 from schemas.records import ApplicationRecord, EventEntry, RecruiterHMMessage
 from schemas.states import HiringManagerState
 from tools.definitions import (
+    ADVANCE_CANDIDATE,
     GIVE_FEEDBACK_TO_RECRUITER,
     REJECT_CANDIDATE,
     REVIEW_FORWARDED_CANDIDATES,
@@ -113,13 +115,9 @@ class HiringManagerAgent(BaseAgent):
             self._build_metrics_summary(),
             self._build_history_section(),
         ]
-        return "\n".join(
-            section for section in sections if section
-        )
+        return "\n".join(section for section in sections if section)
 
-    async def handle_tool_call(
-        self, tool_name: str, tool_input: dict[str, Any]
-    ) -> str:
+    async def handle_tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Dispatches a tool call to the appropriate handler.
 
         Args:
@@ -134,27 +132,62 @@ class HiringManagerAgent(BaseAgent):
             REVIEW_FORWARDED_CANDIDATES: self._review_forwarded_candidates,
             GIVE_FEEDBACK_TO_RECRUITER: self._give_feedback_to_recruiter,
             REJECT_CANDIDATE: self._reject_candidate,
+            ADVANCE_CANDIDATE: self._advance_candidate,
         }
         handler = handlers.get(tool_name)
         if handler:
             return await handler(tool_input)
 
-        logger.info(
-            "[%s] stubbed tool called: %s", self.profile.id, tool_name
-        )
+        logger.info("[%s] stubbed tool called: %s", self.profile.id, tool_name)
         return _STUB_MESSAGE
 
-    async def evaluate(self, interaction: Any) -> str:
+    async def assess_interview(self, data: InterviewData) -> str:
         """Produce a post-interview assessment of a candidate.
 
+        Evaluates the candidate against the hiring manager's
+        technical bar, team needs, and past hiring patterns. An HM
+        with ``team_situation="understaffed"`` may be more willing
+        to advance borderline candidates than one with a stable team.
+        The ``feedback_clarity`` trait shapes how specific and
+        actionable the assessment is.
+
         Args:
-            interaction: Interview data to evaluate.
+            data: Interview transcript, role context, and candidate
+                name.
 
         Returns:
-            Assessment string.
+            Written assessment ending with a
+            ``DECISION: ADVANCE/REJECT/UNDECIDED`` line.
         """
-        # TODO: Implement once interview engine is built.
-        return "Post-interview evaluation not yet implemented."
+        system = self._prompt_builder.build_system_message(self.profile)
+
+        p = self._hm
+        transcript_text = format_transcript(data.transcript)
+
+        user_content = (
+            f"You just finished interviewing {data.other_party_name} "
+            f"for the following role:\n\n{data.role_context}\n\n"
+            f"Transcript:\n\n{transcript_text}\n\n"
+            f"Your hiring bar: {p.technical_bar}\n"
+            f"Team situation: {p.team_situation} "
+            f"(team size: {p.team_size})\n"
+            f"Past hiring context: {p.past_hiring_description}\n\n"
+            "Write your assessment of the candidate. Cover:\n"
+            "- Technical ability relative to the role requirements\n"
+            "- Team fit given your current team situation\n"
+            "- Communication quality and professionalism\n"
+            "- Any concerns or standout moments\n\n"
+            "Then state your decision on its own final line in "
+            "exactly this format:\n"
+            "DECISION: ADVANCE or REJECT or UNDECIDED"
+        )
+
+        response = await self.call_api(system, [{"role": "user", "content": user_content}])
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text += block.text
+        return text.strip()
 
     def _build_role_header(self) -> str:
         """Builds the HM's identity, team context, and hiring bar.
@@ -204,10 +237,7 @@ class HiringManagerAgent(BaseAgent):
             Formatted string with candidate names and which role they
             were forwarded for, or empty string if none pending.
         """
-        pending = [
-            a for a in self._applications.values()
-            if a.status == "reviewed"
-        ]
+        pending = [a for a in self._applications.values() if a.status == "reviewed"]
         if not pending:
             return ""
 
@@ -219,15 +249,9 @@ class HiringManagerAgent(BaseAgent):
             role = posting.title if posting else app.posting_id
 
             forward = self._find_forward_message(app.id)
-            framing = (
-                f" -- Recruiter's take: {forward.content[:150]}"
-                if forward
-                else ""
-            )
+            framing = f" -- Recruiter's take: {forward.content[:150]}" if forward else ""
 
-            lines.append(
-                f"- {candidate_name} for {role} ({app.id}){framing}"
-            )
+            lines.append(f"- {candidate_name} for {role} ({app.id}){framing}")
         lines.append("")
         return "\n".join(lines)
 
@@ -239,31 +263,18 @@ class HiringManagerAgent(BaseAgent):
         """
         sections = []
 
-        forwards = [
-            m for m in self._recruiter_messages
-            if m.message_type == "candidate_forward"
-        ]
+        forwards = [m for m in self._recruiter_messages if m.message_type == "candidate_forward"]
         if forwards:
-            sections.append(
-                f"Candidates forwarded to you: {len(forwards)}"
-            )
+            sections.append(f"Candidates forwarded to you: {len(forwards)}")
 
-        nudges = [
-            m for m in self._recruiter_messages
-            if m.message_type == "nudge"
-        ]
+        nudges = [m for m in self._recruiter_messages if m.message_type == "nudge"]
         if nudges:
             sections.append(f"Pending nudges from recruiters: {len(nudges)}")
             for nudge in nudges[-3:]:
-                recruiter_name = self._recruiter_info.get(
-                    nudge.sender_id, nudge.sender_id
-                )
+                recruiter_name = self._recruiter_info.get(nudge.sender_id, nudge.sender_id)
                 sections.append(f"  - {recruiter_name}: {nudge.content[:200]}")
 
-        own_feedback = [
-            m for m in self._recruiter_messages
-            if m.message_type == "feedback"
-        ]
+        own_feedback = [m for m in self._recruiter_messages if m.message_type == "feedback"]
         if own_feedback:
             sections.append("Your recent feedback to recruiters:")
             for fb in own_feedback[-3:]:
@@ -310,15 +321,11 @@ class HiringManagerAgent(BaseAgent):
         if s.recent_events:
             sections.append("Recent events:")
             for event in s.recent_events:
-                sections.append(
-                    f"- {event.get('description', str(event))}"
-                )
+                sections.append(f"- {event.get('description', str(event))}")
 
         return "\n".join(sections)
 
-    def _find_forward_message(
-        self, application_id: str
-    ) -> RecruiterHMMessage | None:
+    def _find_forward_message(self, application_id: str) -> RecruiterHMMessage | None:
         """Finds the recruiter's forward message for an application.
 
         Args:
@@ -335,9 +342,7 @@ class HiringManagerAgent(BaseAgent):
                 return msg
         return None
 
-    async def _review_forwarded_candidates(
-        self, tool_input: dict[str, Any]
-    ) -> str:
+    async def _review_forwarded_candidates(self, tool_input: dict[str, Any]) -> str:
         """Shows candidates forwarded by recruiters with full details.
 
         Includes the recruiter's framing, candidate resume, and role
@@ -354,15 +359,12 @@ class HiringManagerAgent(BaseAgent):
         candidates = [
             a
             for a in self._applications.values()
-            if a.status == "reviewed"
-            and (posting_id is None or a.posting_id == posting_id)
+            if a.status == "reviewed" and (posting_id is None or a.posting_id == posting_id)
         ]
 
         if not candidates:
             if posting_id:
-                return (
-                    f"No forwarded candidates for posting '{posting_id}'."
-                )
+                return f"No forwarded candidates for posting '{posting_id}'."
             return "No forwarded candidates across your postings."
 
         formatted = []
@@ -374,41 +376,28 @@ class HiringManagerAgent(BaseAgent):
             lines = [
                 f"Application: {app.id}",
                 f"  Candidate: {candidate_name}",
-                f"  Role: {posting.title if posting else app.posting_id}"
-                f" ({app.posting_id})",
+                f"  Role: {posting.title if posting else app.posting_id} ({app.posting_id})",
             ]
 
             if posting:
-                lines.append(
-                    f"  Seniority: {posting.seniority}"
-                )
-                lines.append(
-                    f"  Requirements: {', '.join(posting.requirements)}"
-                )
+                lines.append(f"  Seniority: {posting.seniority}")
+                lines.append(f"  Requirements: {', '.join(posting.requirements)}")
 
             forward = self._find_forward_message(app.id)
             if forward:
-                recruiter_name = self._recruiter_info.get(
-                    forward.sender_id, forward.sender_id
-                )
-                lines.append(
-                    f"  Recruiter ({recruiter_name}) assessment: "
-                    f"{forward.content}"
-                )
+                recruiter_name = self._recruiter_info.get(forward.sender_id, forward.sender_id)
+                lines.append(f"  Recruiter ({recruiter_name}) assessment: {forward.content}")
 
             resume_text = seeker.get("resume", "No resume available.")
             lines.append(f"  Resume:\n{resume_text}")
 
             formatted.append("\n".join(lines))
 
-        return (
-            f"Found {len(candidates)} forwarded candidate(s):\n\n"
-            + "\n\n---\n\n".join(formatted)
+        return f"Found {len(candidates)} forwarded candidate(s):\n\n" + "\n\n---\n\n".join(
+            formatted
         )
 
-    async def _give_feedback_to_recruiter(
-        self, tool_input: dict[str, Any]
-    ) -> str:
+    async def _give_feedback_to_recruiter(self, tool_input: dict[str, Any]) -> str:
         """Sends feedback to a recruiter about pipeline quality.
 
         Creates a RecruiterHMMessage of type "feedback" that the
@@ -427,10 +416,7 @@ class HiringManagerAgent(BaseAgent):
         feedback_text = tool_input["feedback"]
 
         if posting_id not in self._postings:
-            return (
-                f"Posting '{posting_id}' is not one of your "
-                f"managed postings."
-            )
+            return f"Posting '{posting_id}' is not one of your managed postings."
 
         msg_id = f"hm-msg-{uuid.uuid4().hex[:8]}"
         message = RecruiterHMMessage(
@@ -444,19 +430,14 @@ class HiringManagerAgent(BaseAgent):
         )
         self.hm_messages_sent.append(message)
 
-        recruiter_name = self._recruiter_info.get(
-            recruiter_id, recruiter_id
-        )
+        recruiter_name = self._recruiter_info.get(recruiter_id, recruiter_id)
         logger.info(
             "[%s] sent feedback to recruiter %s about posting %s",
             self.profile.id,
             recruiter_name,
             posting_id,
         )
-        return (
-            f"Feedback sent to {recruiter_name} "
-            f"about {posting_id} ({msg_id})."
-        )
+        return f"Feedback sent to {recruiter_name} about {posting_id} ({msg_id})."
 
     async def _reject_candidate(self, tool_input: dict[str, Any]) -> str:
         """Rejects a candidate with reasoning sent back to the recruiter.
@@ -503,10 +484,7 @@ class HiringManagerAgent(BaseAgent):
                 sender_id=self.profile.id,
                 receiver_id=recruiter_id,
                 round_sent=self._state.round_number,
-                content=(
-                    f"Rejected {candidate_name} for {posting_title}: "
-                    f"{reason}"
-                ),
+                content=(f"Rejected {candidate_name} for {posting_title}: {reason}"),
                 message_type="feedback",
                 posting_id=app.posting_id,
                 related_application_id=application_id,
@@ -524,7 +502,7 @@ class HiringManagerAgent(BaseAgent):
                 "posting_id": app.posting_id,
                 "posting_title": posting_title,
                 "message": f"The hiring manager has decided not to move "
-                           f"forward with your application for {posting_title}.",
+                f"forward with your application for {posting_title}.",
                 "from_hiring_manager": self.profile.id,
             },
             created_at=datetime.now(timezone.utc),
@@ -542,4 +520,91 @@ class HiringManagerAgent(BaseAgent):
         return (
             f"Rejected {candidate_name} for {posting_title}. "
             f"Reasoning sent to recruiter ({application_id})."
+        )
+
+    async def _advance_candidate(self, tool_input: dict[str, Any]) -> str:
+        """Advances a forwarded candidate to the interview stage.
+
+        Updates the application status, increments the HM's advance
+        count, notifies the recruiter, and creates an event for the
+        seeker. The runner detects applications with status "advanced"
+        and schedules interviews automatically.
+
+        Args:
+            tool_input: Must contain "application_id".
+
+        Returns:
+            Confirmation string, or an error if the application is
+            not found or not in an advanceable state.
+        """
+        application_id = tool_input["application_id"]
+
+        app = self._applications.get(application_id)
+        if not app:
+            return f"No application found with ID '{application_id}'."
+
+        if app.status != "reviewed":
+            return (
+                f"Application '{application_id}' has status "
+                f"'{app.status}' and cannot be advanced. Only "
+                f"'reviewed' applications can be advanced."
+            )
+
+        posting = self._postings.get(app.posting_id)
+        posting_title = posting.title if posting else app.posting_id
+        seeker = self._seeker_info.get(app.job_seeker_id, {})
+        candidate_name = seeker.get("name", "Unknown")
+
+        app.status = "advanced"
+        app.status_updated_round = self._state.round_number
+        self._state.candidates_advanced += 1
+
+        forward = self._find_forward_message(application_id)
+        recruiter_id = forward.sender_id if forward else app.recruiter_id
+        if recruiter_id:
+            msg_id = f"hm-msg-{uuid.uuid4().hex[:8]}"
+            message = RecruiterHMMessage(
+                id=msg_id,
+                sender_id=self.profile.id,
+                receiver_id=recruiter_id,
+                round_sent=self._state.round_number,
+                content=(
+                    f"Moving forward with {candidate_name} for "
+                    f"{posting_title}. Schedule an interview."
+                ),
+                message_type="feedback",
+                posting_id=app.posting_id,
+                related_application_id=application_id,
+            )
+            self.hm_messages_sent.append(message)
+
+        event_id = f"evt-{uuid.uuid4().hex[:8]}"
+        event = EventEntry(
+            id=event_id,
+            agent_id=app.job_seeker_id,
+            round_number=self._state.round_number,
+            event_type="application_advanced",
+            details={
+                "application_id": application_id,
+                "posting_id": app.posting_id,
+                "posting_title": posting_title,
+                "message": (
+                    f"Great news! The hiring manager wants to interview "
+                    f"you for the {posting_title} position."
+                ),
+                "from_hiring_manager": self.profile.id,
+            },
+            created_at=datetime.now(timezone.utc),
+        )
+        self.events_created.append(event)
+
+        logger.info(
+            "[%s] advanced %s (%s) for %s to interview",
+            self.profile.id,
+            candidate_name,
+            application_id,
+            posting_title,
+        )
+        return (
+            f"Advanced {candidate_name} for {posting_title} to interview stage ({application_id})."
         )

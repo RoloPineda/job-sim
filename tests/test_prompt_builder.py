@@ -79,9 +79,7 @@ class TestBuildSystemMessage:
         ):
             assert forbidden not in lower
 
-    def test_seeker_instructions_not_prescriptive_on_communication(
-        self, builder, seeker_profile
-    ):
+    def test_seeker_instructions_not_prescriptive_on_communication(self, builder, seeker_profile):
         msg = builder.build_system_message(seeker_profile)
         assert "authentic" in msg
 
@@ -91,11 +89,25 @@ class TestBuildSystemMessage:
         msg = builder.build_system_message(recruiter_profile)
         assert "regardless of the outcome" not in msg
 
-    def test_hm_instructions_not_prescriptive_on_feedback_clarity(
-        self, builder, hm_profile
-    ):
+    def test_hm_instructions_not_prescriptive_on_feedback_clarity(self, builder, hm_profile):
         msg = builder.build_system_message(hm_profile)
         assert "vague direction" not in msg
+
+    def test_stage_direction_suppression(self, builder, seeker_profile):
+        msg = builder.build_system_message(seeker_profile)
+        assert "stage directions" in msg
+
+    def test_anti_sycophancy_instruction(self, builder, seeker_profile):
+        msg = builder.build_system_message(seeker_profile)
+        assert "Answer directly" in msg
+
+    def test_output_instructions_apply_to_all_roles(
+        self, builder, seeker_profile, recruiter_profile, hm_profile
+    ):
+        for profile in (seeker_profile, recruiter_profile, hm_profile):
+            msg = builder.build_system_message(profile)
+            assert "stage directions" in msg
+            assert "Answer directly" in msg
 
 
 class TestBuildUserMessage:
@@ -179,9 +191,7 @@ class TestFormatTools:
 
 class TestBuildActionPayload:
     def test_assembles_all_pieces(self, builder, seeker_profile, sample_tools):
-        payload = builder.build_action_payload(
-            seeker_profile, "my context", 5, sample_tools
-        )
+        payload = builder.build_action_payload(seeker_profile, "my context", 5, sample_tools)
         assert "Sarah Chen" in payload["system"]
         assert "Current round: 5" in payload["messages"][0]["content"]
         assert len(payload["tools"]) == 2
@@ -314,9 +324,7 @@ class TestBuildInterviewMessages:
             {"speaker": "Alice", "content": "Hi Bob."},
             {"speaker": "Bob", "content": "How are you?"},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "Role context.", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "Role context.", transcript)
         assert msgs[0]["role"] == "user"
         assert "Role context." in msgs[0]["content"]
         assert msgs[1]["role"] == "assistant"
@@ -327,9 +335,7 @@ class TestBuildInterviewMessages:
             {"speaker": "Bob", "content": "Question?"},
             {"speaker": "Alice", "content": "Answer."},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "context", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "context", transcript)
         assert msgs[-1]["role"] == "user"
         assert msgs[-1]["content"] == "Please continue."
 
@@ -338,10 +344,7 @@ class TestBuildInterviewMessages:
             {"speaker": "Bob", "content": "Part one."},
             {"speaker": "Bob", "content": "Part two."},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "context", transcript
-        )
-        # role_context (user) + Bob's two entries (user) merge into one
+        msgs = builder._build_interview_messages("Alice", "context", transcript)
         assert len(msgs) == 1
         assert "context" in msgs[0]["content"]
         assert "Part one." in msgs[0]["content"]
@@ -349,27 +352,19 @@ class TestBuildInterviewMessages:
 
     def test_first_message_is_role_context(self, builder):
         transcript = [{"speaker": "Bob", "content": "Hello."}]
-        msgs = builder._build_interview_messages(
-            "Alice", "Opening context.", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "Opening context.", transcript)
         assert "Opening context." in msgs[0]["content"]
 
     def test_last_message_always_user_role(self, builder):
-        # Transcript ending on the current speaker (assistant)
         transcript = [
             {"speaker": "Bob", "content": "Q?"},
             {"speaker": "Alice", "content": "A."},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "ctx", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "ctx", transcript)
         assert msgs[-1]["role"] == "user"
 
-        # Transcript ending on the other speaker (already user)
         transcript2 = [{"speaker": "Bob", "content": "Q?"}]
-        msgs2 = builder._build_interview_messages(
-            "Alice", "ctx", transcript2
-        )
+        msgs2 = builder._build_interview_messages("Alice", "ctx", transcript2)
         assert msgs2[-1]["role"] == "user"
 
 
@@ -395,18 +390,13 @@ class TestBuildInterviewTurn:
             {"speaker": "Sarah Chen", "content": "I have 5 years of experience."},
             {"speaker": "Dana Reeves", "content": "What's your biggest strength?"},
         ]
-        payload = builder.build_interview_turn(
-            seeker_profile, "Interview context.", transcript, 4
-        )
+        payload = builder.build_interview_turn(seeker_profile, "Interview context.", transcript, 4)
         messages = payload["messages"]
-        # role_context + Dana's first message merge into one user msg
         assert messages[0]["role"] == "user"
         assert "Interview context." in messages[0]["content"]
         assert "Tell me about yourself." in messages[0]["content"]
-        # Sarah's response as assistant
         assert messages[1]["role"] == "assistant"
         assert "5 years" in messages[1]["content"]
-        # Dana's follow-up as user
         assert messages[2]["role"] == "user"
 
     def test_consecutive_same_speaker_merged(self, builder, seeker_profile):
@@ -414,17 +404,13 @@ class TestBuildInterviewTurn:
             {"speaker": "Dana Reeves", "content": "First question."},
             {"speaker": "Dana Reeves", "content": "Actually, let me rephrase."},
         ]
-        payload = builder.build_interview_turn(
-            seeker_profile, "Interview context.", transcript, 2
-        )
+        payload = builder.build_interview_turn(seeker_profile, "Interview context.", transcript, 2)
         messages = payload["messages"]
         assert len(messages) == 1
         assert "First question." in messages[0]["content"]
         assert "let me rephrase" in messages[0]["content"]
 
-    def test_appends_continue_when_transcript_ends_on_speaker(
-        self, builder, seeker_profile
-    ):
+    def test_appends_continue_when_transcript_ends_on_speaker(self, builder, seeker_profile):
         transcript = [
             {"speaker": "Dana Reeves", "content": "Tell me about yourself."},
             {"speaker": "Sarah Chen", "content": "I have 5 years of experience."},
@@ -468,14 +454,53 @@ class TestBuildInterviewTurn:
         )
         assert "wrapping up" in payload["messages"][-1]["content"]
 
+    def test_interviewer_instruction_for_hm(self, builder, hm_profile):
+        payload = builder.build_interview_turn(
+            hm_profile,
+            "context",
+            [{"speaker": "Sarah Chen", "content": "Hello."}],
+            1,
+        )
+        assert "what you are testing for" in payload["system"]
+
+    def test_interviewer_instruction_for_recruiter(self, builder, recruiter_profile):
+        payload = builder.build_interview_turn(
+            recruiter_profile,
+            "context",
+            [{"speaker": "Sarah Chen", "content": "Hello."}],
+            1,
+        )
+        assert "what you are testing for" in payload["system"]
+
+    def test_no_interviewer_instruction_for_seeker(self, builder, seeker_profile):
+        payload = builder.build_interview_turn(
+            seeker_profile,
+            "context",
+            [{"speaker": "Dana Reeves", "content": "Hello."}],
+            1,
+        )
+        assert "what you are testing for" not in payload["system"]
+
     def test_end_to_end_payload_shape(self, builder, seeker_profile):
         """Integration test: realistic inputs produce a valid payload."""
         transcript = [
-            {"speaker": "Dana Reeves", "content": "Welcome, Sarah. Tell me about yourself."},
-            {"speaker": "Sarah Chen", "content": "Thanks! I have 5 years of backend experience."},
+            {
+                "speaker": "Dana Reeves",
+                "content": "Welcome, Sarah. Tell me about yourself.",
+            },
+            {
+                "speaker": "Sarah Chen",
+                "content": "Thanks! I have 5 years of backend experience.",
+            },
             {"speaker": "Dana Reeves", "content": "What drew you to this role?"},
-            {"speaker": "Sarah Chen", "content": "The technical challenges and team culture."},
-            {"speaker": "Dana Reeves", "content": "Describe a tough debugging scenario."},
+            {
+                "speaker": "Sarah Chen",
+                "content": "The technical challenges and team culture.",
+            },
+            {
+                "speaker": "Dana Reeves",
+                "content": "Describe a tough debugging scenario.",
+            },
         ]
         payload = builder.build_interview_turn(
             seeker_profile,
@@ -484,34 +509,27 @@ class TestBuildInterviewTurn:
             3,
         )
 
-        # Top-level keys
         assert "system" in payload
         assert "messages" in payload
         assert "tools" not in payload
 
-        # System prompt is a non-empty string derived from the profile
         assert isinstance(payload["system"], str)
         assert "Sarah Chen" in payload["system"]
 
-        # Messages list is non-empty
         messages = payload["messages"]
         assert len(messages) >= 1
 
-        # Every message has the required keys with valid roles
         for msg in messages:
             assert msg["role"] in ("user", "assistant")
             assert isinstance(msg["content"], str)
             assert len(msg["content"]) > 0
 
-        # Strict user/assistant alternation
         for i in range(1, len(messages)):
             assert messages[i]["role"] != messages[i - 1]["role"]
 
-        # First message is always user (contains role context)
         assert messages[0]["role"] == "user"
         assert "Senior Engineer" in messages[0]["content"]
 
-        # Last message is always user
         assert messages[-1]["role"] == "user"
 
 

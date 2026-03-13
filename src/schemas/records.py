@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
 from schemas.types import AgentType
 
 
@@ -45,9 +46,7 @@ class ApplicationRecord(BaseModel):
     resume_version_id: str
     cover_letter_version_id: str | None = None
     round_submitted: int = Field(ge=0)
-    status: Literal["pending", "reviewed", "rejected", "advanced", "ghosted"] = (
-        "pending"
-    )
+    status: Literal["pending", "reviewed", "rejected", "advanced", "ghosted"] = "pending"
     status_updated_round: int | None = None
 
 
@@ -214,9 +213,7 @@ class RecruiterHMMessage(BaseModel):
     receiver_id: str
     round_sent: int = Field(ge=0)
     content: str
-    message_type: Literal[
-        "candidate_forward", "feedback", "nudge", "role_change_request"
-    ]
+    message_type: Literal["candidate_forward", "feedback", "nudge", "role_change_request"]
     posting_id: str
     related_application_id: str | None = None
 

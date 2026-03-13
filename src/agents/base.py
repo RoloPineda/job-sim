@@ -23,8 +23,9 @@ from anthropic import (
 from anthropic.types import Message, ToolUseBlock
 
 from engine.prompt_builder import PromptBuilder
-from schemas.profiles import AgentProfile
 from schemas.config import RunConfig
+from schemas.interview import InterviewData
+from schemas.profiles import AgentProfile
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,7 @@ _RETRYABLE_ERRORS = (RateLimitError, APITimeoutError, APIConnectionError)
 _MAX_TOKENS = 4096
 
 _SOFT_CAP_NUDGE = (
-    "\n\nYou're running low on time today. You can take one more "
-    "action or wrap up for the day."
+    "\n\nYou're running low on time today. You can take one more action or wrap up for the day."
 )
 
 # Approximate values for development monitoring. Not used for
@@ -119,9 +119,47 @@ class BaseAgent(ABC):
     async def handle_tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Execute a tool call and return the result string."""
 
-    @abstractmethod
-    async def evaluate(self, interaction: Any) -> str:
-        """Produce a structured assessment after an interaction."""
+    async def screen_candidate(self, interaction: Any) -> str:
+        """Produce a pre-interview screening assessment.
+
+        Evaluates a candidate's application materials before deciding
+        whether to advance them to an interview. Override in agent
+        types that perform candidate screening (recruiter, hiring
+        manager).
+
+        Args:
+            interaction: Screening data, typically a dict containing
+                an ``application_id`` key.
+
+        Returns:
+            Screening assessment string.
+
+        Raises:
+            NotImplementedError: If the agent type does not support
+                candidate screening.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support candidate screening")
+
+    async def assess_interview(self, data: "InterviewData") -> str:
+        """Produce a post-interview assessment.
+
+        Called by the interview orchestrator after the conversation
+        loop completes. Override in agent types that participate in
+        interviews.
+
+        Args:
+            data: Interview transcript, role context, and the other
+                party's name.
+
+        Returns:
+            Written assessment string. Interviewer assessments must
+            end with a ``DECISION: ADVANCE/REJECT/UNDECIDED`` line.
+
+        Raises:
+            NotImplementedError: If the agent type does not support
+                interview assessment.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support interview assessment")
 
     async def run_turn(
         self,
@@ -175,9 +213,7 @@ class BaseAgent(ABC):
             messages.append(
                 {
                     "role": "assistant",
-                    "content": [
-                        b.model_dump(exclude_none=True) for b in response.content
-                    ],
+                    "content": [b.model_dump(exclude_none=True) for b in response.content],
                 }
             )
 

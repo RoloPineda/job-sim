@@ -44,9 +44,7 @@ class TestCompRangeValidator:
 
     def test_low_below_high_passes(self):
         """Normal case: low < high is valid."""
-        state = make_seeker_state(
-            target_comp_low=80_000, target_comp_high=120_000
-        )
+        state = make_seeker_state(target_comp_low=80_000, target_comp_high=120_000)
         assert state.target_comp_low < state.target_comp_high
 
 

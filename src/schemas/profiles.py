@@ -7,6 +7,7 @@ schemas.states instead.
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
 from schemas.shared import Education, WorkEntry
 from schemas.types import AgentType
 
@@ -114,9 +115,7 @@ class HiringManagerProfile(AgentProfile):
     company_id: str
     team_size: int = Field(ge=0)
     team_situation: Literal["understaffed", "stable", "growing", "rebuilding"]
-    management_style: Literal[
-        "detailed_feedback", "vague", "responsive", "slow", "micromanager"
-    ]
+    management_style: Literal["detailed_feedback", "vague", "responsive", "slow", "micromanager"]
     technical_bar: str
     interview_capacity_per_round: int = Field(ge=0)
     past_hiring_description: str

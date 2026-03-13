@@ -28,11 +28,8 @@ Dev: pytest, ruff
 - You must use typehints 
 - You must ensure that docstrings are relevant and not regurgitate what's on the function definition
 - Comments should be used carefully to explain things like magic numbers or why a decision was made to do it a certain way, or to explain things that are not easy to understand by reading the code
-
-
-### Branching rules
-Always create a new branch from main before starting work. Use conventional commits. Naming convention `feature/module-name`. Commit frequently. Never work directly on main. Do not add yourself as contributor/author.
-
+- You are forbidden from using separator comments
+- 
 ## License
 
 CC BY-NC-SA 4.0 — non-commercial with attribution, derivatives must use same license.

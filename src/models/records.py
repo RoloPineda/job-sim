@@ -5,8 +5,10 @@ during a simulation run. All records are append-only unless explicitly
 noted as mutable.
 """
 
+from __future__ import annotations
+
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -20,6 +22,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from models.company import JobPosting
 
 _VALID_APPLICATION_STATUSES = ("pending", "reviewed", "rejected", "advanced", "ghosted")
 _VALID_RESUME_TRIGGERS = ("initial", "general_rewrite", "tailored")
@@ -68,15 +73,11 @@ class Application(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    job_seeker_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    job_seeker_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     posting_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("job_postings.id"), nullable=False
     )
-    recruiter_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    recruiter_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     resume_version_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("resume_versions.id"), nullable=False
     )
@@ -125,15 +126,11 @@ class ResumeVersion(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    job_seeker_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    job_seeker_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     round_created: Mapped[int] = mapped_column(Integer, nullable=False)
     full_text: Mapped[str] = mapped_column(Text, nullable=False)
     trigger: Mapped[str] = mapped_column(String(20), nullable=False)
-    target_posting_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("job_postings.id")
-    )
+    target_posting_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("job_postings.id"))
     state_summary_at_creation: Mapped[str] = mapped_column(Text, nullable=False)
 
 
@@ -167,9 +164,7 @@ class CoverLetterVersion(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    job_seeker_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    job_seeker_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     round_created: Mapped[int] = mapped_column(Integer, nullable=False)
     full_text: Mapped[str] = mapped_column(Text, nullable=False)
     trigger: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -224,20 +219,14 @@ class Interview(UUIDPrimaryKeyMixin, Base):
     application_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("applications.id"), nullable=False
     )
-    interviewer_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    interviewer_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     interviewer_type: Mapped[str] = mapped_column(String(20), nullable=False)
     round_scheduled: Mapped[int] = mapped_column(Integer, nullable=False)
     round_conducted: Mapped[int] = mapped_column(Integer, nullable=False)
-    transcript: Mapped[list[dict[str, str]]] = mapped_column(
-        JSONB, nullable=False, default=list
-    )
+    transcript: Mapped[list[dict[str, str]]] = mapped_column(JSONB, nullable=False, default=list)
     interviewer_evaluation: Mapped[str | None] = mapped_column(Text)
     candidate_evaluation: Mapped[str | None] = mapped_column(Text)
-    outcome: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="undecided"
-    )
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False, default="undecided")
 
     application: Mapped["Application"] = relationship(back_populates="interviews")
 
@@ -287,9 +276,7 @@ class Offer(UUIDPrimaryKeyMixin, Base):
     negotiation_history: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list
     )
-    final_outcome: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="negotiating"
-    )
+    final_outcome: Mapped[str] = mapped_column(String(20), nullable=False, default="negotiating")
     round_resolved: Mapped[int | None] = mapped_column(Integer)
 
     application: Mapped["Application"] = relationship(back_populates="offers")
@@ -327,12 +314,8 @@ class RecruiterHMMessage(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    sender_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
-    receiver_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    sender_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
+    receiver_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     round_sent: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     message_type: Mapped[str] = mapped_column(String(30), nullable=False)

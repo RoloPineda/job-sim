@@ -1,5 +1,12 @@
 """ORM models for companies and job postings."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models.agents import HiringManager, Recruiter
+
 import uuid
 
 from sqlalchemy import (
@@ -112,9 +119,7 @@ class Company(UUIDPrimaryKeyMixin, Base):
     rejection_specificity: Mapped[str] = mapped_column(String(20), nullable=False)
 
     recruiters: Mapped[list["Recruiter"]] = relationship(back_populates="company")
-    hiring_managers: Mapped[list["HiringManager"]] = relationship(
-        back_populates="company"
-    )
+    hiring_managers: Mapped[list["HiringManager"]] = relationship(back_populates="company")
     postings: Mapped[list["JobPosting"]] = relationship(back_populates="company")
 
 
@@ -169,15 +174,11 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    company_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("companies.id"), nullable=False
-    )
+    company_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False)
     hiring_manager_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("agents.id"), nullable=False
     )
-    recruiter_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    recruiter_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     department: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)

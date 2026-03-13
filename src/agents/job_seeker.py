@@ -16,6 +16,7 @@ from anthropic import AsyncAnthropic
 from agents.base import BaseAgent
 from schemas.company import JobPosting
 from schemas.config import RunConfig
+from schemas.interview import InterviewData, format_transcript
 from schemas.profiles import JobSeekerProfile
 from schemas.records import ApplicationRecord, ResumeVersion
 from schemas.states import JobSeekerState
@@ -60,10 +61,7 @@ def _format_posting(posting: JobPosting, current_round: int) -> str:
         f"  Seniority: {posting.seniority}",
     ]
     if posting.salary_range_low is not None and posting.salary_range_high is not None:
-        lines.append(
-            f"  Salary: ${posting.salary_range_low:,} - "
-            f"${posting.salary_range_high:,}"
-        )
+        lines.append(f"  Salary: ${posting.salary_range_low:,} - ${posting.salary_range_high:,}")
     elif posting.salary_range_low is not None:
         lines.append(f"  Salary: from ${posting.salary_range_low:,}")
     else:
@@ -103,9 +101,7 @@ def _format_education(profile: JobSeekerProfile) -> str:
     Returns:
         Comma-separated education entries.
     """
-    return ", ".join(
-        f"{e.degree} from {e.school} ({e.year})" for e in profile.education_history
-    )
+    return ", ".join(f"{e.degree} from {e.school} ({e.year})" for e in profile.education_history)
 
 
 class JobSeekerAgent(BaseAgent):
@@ -223,9 +219,7 @@ class JobSeekerAgent(BaseAgent):
 
         return "\n".join(sections)
 
-    async def handle_tool_call(
-        self, tool_name: str, tool_input: dict[str, Any]
-    ) -> str:
+    async def handle_tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Dispatch a tool call to the appropriate handler.
 
         Args:
@@ -245,22 +239,56 @@ class JobSeekerAgent(BaseAgent):
         if handler:
             return await handler(tool_input)
 
-        logger.info(
-            "[%s] stubbed tool called: %s", self.profile.id, tool_name
-        )
+        logger.info("[%s] stubbed tool called: %s", self.profile.id, tool_name)
         return _STUB_MESSAGE
 
-    async def evaluate(self, interaction: Any) -> str:
+    async def assess_interview(self, data: InterviewData) -> str:
         """Produce a post-interview self-assessment.
 
+        Reflects on the interview from the candidate's perspective,
+        incorporating financial pressure, target preferences, and
+        perceived skills. A seeker with low savings and few options
+        will assess even a mediocre interview more favorably than
+        one with a comfortable runway.
+
         Args:
-            interaction: Interview data to evaluate.
+            data: Interview transcript, role context, and interviewer
+                name.
 
         Returns:
-            Assessment string.
+            The seeker's written self-assessment.
         """
-        # TODO: Implement once interview engine is built.
-        return "Post-interview evaluation not yet implemented."
+        system = self._prompt_builder.build_system_message(self.profile)
+
+        s = self._state
+        months_remaining = s.savings // s.burn_rate if s.burn_rate else "unknown"
+        transcript_text = format_transcript(data.transcript)
+
+        user_content = (
+            f"You just finished an interview with {data.other_party_name} "
+            f"for the following role:\n\n{data.role_context}\n\n"
+            f"Transcript:\n\n{transcript_text}\n\n"
+            f"Your current situation: ${s.savings:,} in savings with "
+            f"${s.burn_rate:,}/month in expenses ({months_remaining} "
+            f"months runway). You're targeting "
+            f"{', '.join(s.target_roles)} roles at the "
+            f"{s.target_seniority} level, "
+            f"${s.target_comp_low:,}-${s.target_comp_high:,}.\n\n"
+            "Reflect on how the interview went from your perspective. "
+            "Cover:\n"
+            "- How well you were able to present your skills and "
+            "experience\n"
+            "- Your impression of the interviewer and the role\n"
+            "- Whether this opportunity still interests you and why\n"
+            "- Anything you wish you had said or done differently"
+        )
+
+        response = await self.call_api(system, [{"role": "user", "content": user_content}])
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text += block.text
+        return text.strip()
 
     async def _browse_job_board(self, tool_input: dict[str, Any]) -> str:
         """Filter and return visible postings matching the criteria.
@@ -294,9 +322,9 @@ class JobSeekerAgent(BaseAgent):
         min_salary = tool_input.get("min_salary")
         if min_salary is not None:
             matches = [
-                p for p in matches
-                if p.salary_range_high is not None
-                and p.salary_range_high >= min_salary
+                p
+                for p in matches
+                if p.salary_range_high is not None and p.salary_range_high >= min_salary
             ]
 
         if not matches:
@@ -372,18 +400,14 @@ class JobSeekerAgent(BaseAgent):
         if posting.status != "open":
             return f"Posting '{posting_id}' is no longer accepting applications."
 
-        resume_version_id = (
-            self.resume_versions[-1].id
-            if self.resume_versions
-            else "pre-existing"
-        )
+        resume_version_id = self.resume_versions[-1].id if self.resume_versions else "pre-existing"
 
         app_id = f"app-{uuid.uuid4().hex[:8]}"
         application = ApplicationRecord(
             id=app_id,
             job_seeker_id=self.profile.id,
             posting_id=posting_id,
-            recruiter_id=None, # This is saved by the engine when saving the record
+            recruiter_id=None,  # This is saved by the engine when saving the record
             resume_version_id=resume_version_id,
             round_submitted=self._state.round_number,
         )

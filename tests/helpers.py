@@ -388,8 +388,7 @@ def make_multi_tool_response(
         tools: List of (name, input, id) tuples.
     """
     content = [
-        ToolUseBlock(type="tool_use", id=tid, name=name, input=inp)
-        for name, inp, tid in tools
+        ToolUseBlock(type="tool_use", id=tid, name=name, input=inp) for name, inp, tid in tools
     ]
     return Message(
         id="msg_test",

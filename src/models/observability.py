@@ -57,9 +57,7 @@ class StateSnapshot(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     agent_type: Mapped[str] = mapped_column(String(20), nullable=False)
     round_number: Mapped[int] = mapped_column(Integer, nullable=False)
     state_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
@@ -94,9 +92,7 @@ class Reflection(UUIDPrimaryKeyMixin, Base):
     run_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("simulation_runs.id"), nullable=False
     )
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     agent_type: Mapped[str] = mapped_column(String(20), nullable=False)
     round_number: Mapped[int] = mapped_column(Integer, nullable=False)
     prompt_used: Mapped[str] = mapped_column(Text, nullable=False)

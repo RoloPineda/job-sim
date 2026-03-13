@@ -73,8 +73,7 @@ def _make_multi_tool_response(
         tools: List of (name, input, id) tuples.
     """
     content = [
-        ToolUseBlock(type="tool_use", id=tid, name=name, input=inp)
-        for name, inp, tid in tools
+        ToolUseBlock(type="tool_use", id=tid, name=name, input=inp) for name, inp, tid in tools
     ]
     return Message(
         id="msg_test",
@@ -163,9 +162,7 @@ class TestCallApi:
     @pytest.mark.asyncio
     async def test_successful_call(self, agent, mock_client):
         mock_client.messages.create.return_value = _make_text_response()
-        response = await agent.call_api(
-            "system prompt", [{"role": "user", "content": "hello"}]
-        )
+        response = await agent.call_api("system prompt", [{"role": "user", "content": "hello"}])
         assert response.content[0].text == "I'll think about it."
         mock_client.messages.create.assert_awaited_once()
 
@@ -211,9 +208,7 @@ class TestCallApi:
             _make_text_response(),
         ]
         with patch("agents.base.asyncio.sleep", new_callable=AsyncMock):
-            response = await agent.call_api(
-                "system", [{"role": "user", "content": "hi"}]
-            )
+            response = await agent.call_api("system", [{"role": "user", "content": "hi"}])
         assert response.content[0].text == "I'll think about it."
         assert mock_client.messages.create.await_count == 2
 
@@ -256,9 +251,7 @@ class TestRunTurn:
         result = await agent.run_turn(1)
         assert result.tool_calls_made == 1
         assert result.api_calls_made == 2
-        assert agent.tool_calls_received == [
-            ("browse_job_board", {"filter_role": "engineer"})
-        ]
+        assert agent.tool_calls_received == [("browse_job_board", {"filter_role": "engineer"})]
 
     @pytest.mark.asyncio
     async def test_multiple_tool_calls_in_one_response(self, agent, mock_client):

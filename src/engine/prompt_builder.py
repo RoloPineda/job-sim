@@ -5,11 +5,13 @@ API-ready message structures. This module handles formatting only, all
 content generation (context building, history compression) happens
 elsewhere.
 """
-from anthropic.types import MessageParam
-from typing import Any, NotRequired, TypedDict, cast, Literal
 
-from schemas.profiles import AgentProfile
+from typing import Any, Literal, NotRequired, TypedDict, cast
+
+from anthropic.types import MessageParam
+
 from schemas.config import RunConfig
+from schemas.profiles import AgentProfile
 
 _SEEKER_INSTRUCTIONS = (
     "You are looking for work. Make decisions based on your skills, "
@@ -39,6 +41,14 @@ _HM_INSTRUCTIONS = (
     "When evaluating candidates, apply your own judgment and standards. "
     "Consider technical ability, team fit, and what your team actually needs "
     "right now."
+)
+
+_INTERVIEWER_TYPES = {"recruiter", "hiring_manager"}
+
+_INTERVIEWER_INSTRUCTIONS = (
+    "Ask questions and make statements as you naturally would. "
+    "Do not explain what you are testing for or what a question "
+    "is designed to reveal."
 )
 
 _BEHAVIORAL_INSTRUCTIONS: dict[str, str] = {
@@ -106,6 +116,13 @@ class PromptBuilder:
             f"{profile.disposition}\n\n"
             f"{profile.backstory}\n\n"
             f"{instructions}"
+            "Respond with only your spoken words. Do not include "
+            "actions, stage directions, gestures, or descriptions "
+            "of body language. Do not compliment or validate the "
+            "other person's questions or statements before answering."
+            "Do not open your response by agreeing with, complimenting, "
+            "or acknowledging the other person's question or statement. "
+            "Answer directly."
         )
 
     def build_user_message(
@@ -196,9 +213,7 @@ class PromptBuilder:
             Complete message payload for the API call.
         """
         system = self.build_system_message(profile)
-        user = self.build_user_message(
-            context, round_number, profile.agent_type, notifications
-        )
+        user = self.build_user_message(context, round_number, profile.agent_type, notifications)
         formatted_tools = self.format_tools(tools)
 
         payload = MessagePayload(
@@ -237,9 +252,9 @@ class PromptBuilder:
             Complete message payload for the API call.
         """
         system = self.build_system_message(speaker_profile)
-        messages = self._build_interview_messages(
-            speaker_profile.name, role_context, transcript
-        )
+        if speaker_profile.agent_type in _INTERVIEWER_TYPES:
+            system += "\n\n" + _INTERVIEWER_INSTRUCTIONS
+        messages = self._build_interview_messages(speaker_profile.name, role_context, transcript)
         # Inject one turn before the hard stop so the agent can close
         # naturally rather than getting cut off mid-thought.
         if turn_number >= self._interview_turn_ceiling - 1:
@@ -275,7 +290,9 @@ class PromptBuilder:
         """
         raw: list[MessageParam] = [{"role": "user", "content": role_context}]
         for entry in transcript:
-            role: Literal["user", "assistant"] = "assistant" if entry["speaker"] == speaker_name else "user"
+            role: Literal["user", "assistant"] = (
+                "assistant" if entry["speaker"] == speaker_name else "user"
+            )
             raw.append({"role": role, "content": entry["content"]})
 
         messages = self._merge_consecutive_roles(raw)
@@ -305,7 +322,8 @@ class PromptBuilder:
         if isinstance(content, str):
             return content
         return "\n".join(
-            block.get("text", "") for block in content
+            block.get("text", "")
+            for block in content
             if isinstance(block, dict) and block.get("type") == "text"
         )
 

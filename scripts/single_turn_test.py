@@ -121,9 +121,7 @@ class InstrumentedJobSeeker(JobSeekerAgent):
         _log_response(response)
         return response
 
-    async def handle_tool_call(
-        self, tool_name: str, tool_input: dict[str, Any]
-    ) -> str:
+    async def handle_tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         result = await super().handle_tool_call(tool_name, tool_input)
         log.debug("\n--- TOOL RESULT: %s ---", tool_name)
         log.debug("  %s", result)
