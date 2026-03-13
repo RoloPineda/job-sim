@@ -51,6 +51,31 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class PendingInterview:
+    """An interview that needs to be conducted this round.
+
+    Populated by find_pending_interviews() from applications that
+    have been advanced but don't yet have an Interview record.
+
+    Attributes:
+        application_id: The advanced application's ID.
+        job_seeker_id: The candidate's agent ID.
+        posting_id: The posting being interviewed for.
+        interviewer_id: The hiring manager's agent ID.
+        interviewer_type: Always "hiring_manager" for now. Will
+            support "recruiter" when recruiter screens are added.
+        round_scheduled: The round the application was advanced.
+    """
+
+    application_id: str
+    job_seeker_id: str
+    posting_id: str
+    interviewer_id: str
+    interviewer_type: str
+    round_scheduled: int
+
+
+@dataclass
 class JobSeekerBundle:
     """All data needed to construct a JobSeekerAgent."""
 
@@ -900,6 +925,112 @@ class StateManager:
                     )
                 )
                 await self._session.execute(stmt)
+
+
+    async def find_pending_interviews(self, round_number):
+        """Finds applications ready for interview that have no record yet.
+
+        Queries for applications with status "advanced" in this run
+        that do not have a corresponding Interview row. Joins to the
+        job_postings table to identify the hiring manager who will
+        conduct the interview.
+
+        Args:
+            round_number: The current simulation round, used as
+                round_scheduled if the application doesn't have a
+                status_updated_round.
+
+        Returns:
+            List of PendingInterview objects describing each interview
+            to schedule.
+        """
+        from sqlalchemy import select, exists
+        from models.records import (
+            Application as ApplicationModel,
+            Interview as InterviewModel,
+        )
+        from models.company import JobPosting as JobPostingModel
+
+        interview_exists = (
+            select(InterviewModel.id)
+            .where(InterviewModel.application_id == ApplicationModel.id)
+            .exists()
+        )
+
+        stmt = (
+            select(
+                ApplicationModel.id,
+                ApplicationModel.job_seeker_id,
+                ApplicationModel.posting_id,
+                ApplicationModel.status_updated_round,
+                JobPostingModel.hiring_manager_id,
+            )
+            .join(
+                JobPostingModel,
+                ApplicationModel.posting_id == JobPostingModel.id,
+            )
+            .where(
+                ApplicationModel.run_id == self._run_id,
+                ApplicationModel.status == "advanced",
+                ~interview_exists,
+            )
+        )
+
+        result = await self._session.execute(stmt)
+        rows = result.all()
+
+        pending = []
+        for row in rows:
+            pending.append(PendingInterview(
+                application_id=str(row.id),
+                job_seeker_id=str(row.job_seeker_id),
+                posting_id=str(row.posting_id),
+                interviewer_id=str(row.hiring_manager_id),
+                interviewer_type="hiring_manager",
+                round_scheduled=row.status_updated_round or round_number,
+            ))
+
+        return pending
+
+    async def persist_interview(
+            self,
+            pending,
+            round_conducted,
+            transcript,
+            interviewer_assessment,
+            candidate_assessment,
+            outcome,
+    ):
+        """Persists a completed interview to the database.
+
+        Creates an Interview ORM record from the orchestrator's result
+        and the scheduling metadata.
+
+        Args:
+            pending: The PendingInterview that triggered this interview.
+            round_conducted: The round the interview took place.
+            transcript: List of speaker/content dicts from the
+                conversation.
+            interviewer_assessment: The interviewer's written assessment.
+            candidate_assessment: The candidate's written self-assessment.
+            outcome: The parsed hiring decision string.
+        """
+        import uuid as uuid_mod
+        from models.records import Interview as InterviewModel
+
+        self._session.add(InterviewModel(
+            id=uuid_mod.uuid4(),
+            run_id=self._run_id,
+            application_id=self._to_uuid(pending.application_id),
+            interviewer_id=self._to_uuid(pending.interviewer_id),
+            interviewer_type=pending.interviewer_type,
+            round_scheduled=pending.round_scheduled,
+            round_conducted=round_conducted,
+            transcript=transcript,
+            interviewer_evaluation=interviewer_assessment,
+            candidate_evaluation=candidate_assessment,
+            outcome=outcome,
+        ))
 
     @staticmethod
     def _to_uuid(value: str | uuid_mod.UUID) -> uuid_mod.UUID:

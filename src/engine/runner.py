@@ -20,6 +20,7 @@ from agents.hiring_manager import HiringManagerAgent
 from agents.job_seeker import JobSeekerAgent
 from agents.recruiter import RecruiterAgent
 from engine.compression import compress_history, should_compress
+from engine.interview import InterviewOrchestrator, build_role_context
 from engine.prompt_builder import PromptBuilder
 from engine.state_manager import (
     BackgroundOutcome,
@@ -83,43 +84,121 @@ class SimulationRunner:
 
         logger.info("Simulation %s finished", self._run_id)
 
-    async def _run_round(self, round_number: int) -> None:
-        """Executes a single simulation round.
+    async def _run_interviews(
+            self,
+            job_seeker_bundles,
+            hm_bundles,
+            open_postings,
+            round_number,
+    ):
+        """Detects and runs interviews for newly advanced applications.
+
+        After hiring managers advance applications during their turn,
+        this method finds those that don't yet have an Interview record,
+        constructs lightweight agent instances for the conversation,
+        runs the multi-turn interview via the orchestrator, and persists
+        results.
+
+        Interviews run sequentially to respect logging clarity and
+        simplify debugging. Future optimization: batch by interviewer
+        and respect interview_capacity_per_round.
 
         Args:
-            round_number: The current round to execute.
+            job_seeker_bundles: All seeker bundles for the round, used
+                to construct candidate agents.
+            hm_bundles: All HM bundles for the round, used to construct
+                interviewer agents.
+            open_postings: All open postings, used to build role context.
+            round_number: The current simulation round.
         """
-        await self._process_background_outcomes(round_number)
-
-        job_seeker_bundles = await self._state_manager.load_job_seeker_bundles(
+        pending = await self._state_manager.find_pending_interviews(
             round_number
         )
-        open_postings = await self._state_manager.load_open_postings()
-        recruiter_bundles = await self._state_manager.load_recruiter_bundles(
-            round_number
-        )
-        hm_bundles = await self._state_manager.load_hm_bundles(round_number)
 
-        if (
-            round_number > 1
-            and round_number % self._config.compression_frequency == 0
-        ):
-            await self._compress_all(
-                job_seeker_bundles, recruiter_bundles, hm_bundles
+        if not pending:
+            return
+
+        logger.info(
+            "Round %d: %d interview(s) to conduct", round_number, len(pending)
+        )
+
+        seeker_map = {b.profile.id: b for b in job_seeker_bundles}
+        hm_map = {b.profile.id: b for b in hm_bundles}
+        posting_map = {p.id: p for p in open_postings}
+
+        for interview_info in pending:
+            seeker_bundle = seeker_map.get(interview_info.job_seeker_id)
+            hm_bundle = hm_map.get(interview_info.interviewer_id)
+            posting = posting_map.get(interview_info.posting_id)
+
+            if not seeker_bundle or not hm_bundle or not posting:
+                logger.warning(
+                    "Skipping interview for application %s: missing "
+                    "bundle or posting (seeker=%s, hm=%s, posting=%s)",
+                    interview_info.application_id,
+                    seeker_bundle is not None,
+                    hm_bundle is not None,
+                    posting is not None,
+                )
+                continue
+
+            interviewer = HiringManagerAgent(
+                profile=hm_bundle.profile,
+                config=self._config,
+                state=hm_bundle.state,
+                postings=[posting],
+                applications=[],
+                recruiter_messages=[],
+                seeker_info={},
+                recruiter_info={},
+                client=self._client,
             )
 
-        await self._run_job_seeker_turns(
-            job_seeker_bundles, open_postings, round_number
-        )
-        await self._run_recruiter_turns(recruiter_bundles, round_number)
-        await self._run_hm_turns(hm_bundles, round_number)
-
-        if round_number % self._config.reflection_frequency == 0:
-            await self._run_reflections(
-                job_seeker_bundles, recruiter_bundles, hm_bundles, round_number
+            candidate = JobSeekerAgent(
+                profile=seeker_bundle.profile,
+                config=self._config,
+                state=seeker_bundle.state,
+                postings=[posting],
+                client=self._client,
             )
 
-        await self._state_manager.write_snapshots(round_number)
+            role_context = build_role_context(
+                posting,
+                hm_bundle.profile.name,
+                seeker_bundle.profile.name,
+            )
+
+            orchestrator = InterviewOrchestrator(
+                interviewer=interviewer,
+                candidate=candidate,
+                role_context=role_context,
+                config=self._config,
+                client=self._client,
+            )
+
+            result = await orchestrator.run()
+
+            await self._state_manager.persist_interview(
+                pending=interview_info,
+                round_conducted=round_number,
+                transcript=result.transcript,
+                interviewer_assessment=result.interviewer_assessment,
+                candidate_assessment=result.candidate_assessment,
+                outcome=result.outcome,
+            )
+
+            await self._create_interview_events(
+                interview_info, result, round_number
+            )
+
+            logger.info(
+                "Interview complete: %s interviewed %s for %s, "
+                "outcome=%s",
+                hm_bundle.profile.name,
+                seeker_bundle.profile.name,
+                posting.title,
+                result.outcome,
+            )
 
     async def _run_job_seeker_turns(
         self,
@@ -127,11 +206,11 @@ class SimulationRunner:
         postings: list[JobPosting],
         round_number: int,
     ) -> None:
-        """Runs all job seeker turns concurrently and persists results.
+        """Runs all jobseeker turns concurrently and persists results.
 
         Args:
-            bundles: Job seeker data bundles for the round.
-            postings: Open postings shared across all job seekers.
+            bundles: Jobseeker data bundles for the round.
+            postings: Open postings shared across all jobseekers.
             round_number: Current round.
         """
         agents = [
@@ -476,3 +555,67 @@ class SimulationRunner:
             app for app in applications
             if app.status_updated_round is not None
         ]
+
+    async def _create_interview_events(
+            self,
+            interview_info,
+            result,
+            round_number,
+    ):
+        """Creates events so both agents see the interview in future context.
+
+        Adds an event to the candidate's and interviewer's event streams
+        describing the interview outcome. These events flow into
+        compressed_history and recent_events in subsequent rounds.
+
+        Args:
+            interview_info: The PendingInterview scheduling data.
+            result: The completed InterviewResult.
+            round_number: The round the interview was conducted.
+        """
+        from datetime import datetime, timezone
+
+        candidate_event = EventEntry(
+            id=str(uuid_mod.uuid4()),
+            agent_id=interview_info.job_seeker_id,
+            round_number=round_number,
+            event_type="interview_completed",
+            details={
+                "application_id": interview_info.application_id,
+                "posting_id": interview_info.posting_id,
+                "interviewer_id": interview_info.interviewer_id,
+                "interviewer_type": interview_info.interviewer_type,
+                "outcome": result.outcome,
+                "self_assessment": result.candidate_assessment[:500],
+                "description": (
+                    f"Completed interview for application "
+                    f"{interview_info.application_id}. "
+                    f"Outcome: {result.outcome}."
+                ),
+            },
+            created_at=datetime.now(timezone.utc),
+        )
+
+        interviewer_event = EventEntry(
+            id=str(uuid_mod.uuid4()),
+            agent_id=interview_info.interviewer_id,
+            round_number=round_number,
+            event_type="interview_conducted",
+            details={
+                "application_id": interview_info.application_id,
+                "posting_id": interview_info.posting_id,
+                "candidate_id": interview_info.job_seeker_id,
+                "outcome": result.outcome,
+                "assessment_summary": result.interviewer_assessment[:500],
+                "description": (
+                    f"Conducted interview for application "
+                    f"{interview_info.application_id}. "
+                    f"Decision: {result.outcome}."
+                ),
+            },
+            created_at=datetime.now(timezone.utc),
+        )
+
+        await self._state_manager.persist_events(
+            [candidate_event, interviewer_event]
+        )
