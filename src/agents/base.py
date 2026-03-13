@@ -23,9 +23,9 @@ from anthropic import (
 from anthropic.types import Message, ToolUseBlock
 
 from engine.prompt_builder import PromptBuilder
+from schemas.config import RunConfig
 from schemas.interview import InterviewData
 from schemas.profiles import AgentProfile
-from schemas.config import RunConfig
 
 logger = logging.getLogger(__name__)
 

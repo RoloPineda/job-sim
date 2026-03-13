@@ -30,8 +30,8 @@ from engine.state_manager import (
     StateManager,
 )
 from models.agents import Agent
-from schemas.config import RunConfig
 from schemas.company import JobPosting
+from schemas.config import RunConfig
 from schemas.profiles import AgentProfile
 from schemas.records import ApplicationRecord, EventEntry
 

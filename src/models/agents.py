@@ -1,5 +1,12 @@
 """ORM models for simulation agents using joined-table inheritance."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models.company import Company, JobPosting
+
 import uuid
 from typing import Any
 

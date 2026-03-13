@@ -7,6 +7,7 @@ schemas.states instead.
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
 from schemas.shared import Education, WorkEntry
 from schemas.types import AgentType
 

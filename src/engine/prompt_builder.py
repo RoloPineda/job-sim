@@ -6,11 +6,12 @@ content generation (context building, history compression) happens
 elsewhere.
 """
 
-from anthropic.types import MessageParam
-from typing import Any, NotRequired, TypedDict, cast, Literal
+from typing import Any, Literal, NotRequired, TypedDict, cast
 
-from schemas.profiles import AgentProfile
+from anthropic.types import MessageParam
+
 from schemas.config import RunConfig
+from schemas.profiles import AgentProfile
 
 _SEEKER_INSTRUCTIONS = (
     "You are looking for work. Make decisions based on your skills, "

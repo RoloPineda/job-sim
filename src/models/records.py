@@ -5,8 +5,10 @@ during a simulation run. All records are append-only unless explicitly
 noted as mutable.
 """
 
+from __future__ import annotations
+
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -20,6 +22,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from models.company import JobPosting
 
 _VALID_APPLICATION_STATUSES = ("pending", "reviewed", "rejected", "advanced", "ghosted")
 _VALID_RESUME_TRIGGERS = ("initial", "general_rewrite", "tailored")

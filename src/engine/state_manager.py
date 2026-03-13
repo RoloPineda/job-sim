@@ -16,11 +16,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models.agents import Agent, HiringManager, JobSeeker, Recruiter
-from models.company import Company, JobPosting as JobPostingModel
-from models.observability import Event as EventModel, Reflection, StateSnapshot
+from models.company import Company
+from models.company import JobPosting as JobPostingModel
+from models.observability import Event as EventModel
+from models.observability import Reflection, StateSnapshot
 from models.records import (
     Application as ApplicationModel,
+)
+from models.records import (
     RecruiterHMMessage as MessageModel,
+)
+from models.records import (
     ResumeVersion as ResumeVersionModel,
 )
 from schemas.company import JobPosting
@@ -44,19 +50,19 @@ from schemas.states import (
     RecruiterState,
 )
 from schemas.types import (
-    ApplicationStatus,
-    Seniority,
     AgentType,
-    SelfAwareness,
+    ApplicationStatus,
     CommunicationAbility,
-    LocationFlexibility,
-    RemotePreference,
     ExperienceLevel,
-    TeamSituation,
-    ManagementStyle,
     FeedbackClarity,
-    PostingStatus,
+    LocationFlexibility,
+    ManagementStyle,
     MessageType,
+    PostingStatus,
+    RemotePreference,
+    SelfAwareness,
+    Seniority,
+    TeamSituation,
 )
 
 logger = logging.getLogger(__name__)
@@ -906,11 +912,14 @@ class StateManager:
             to schedule.
         """
         from sqlalchemy import select
+
+        from models.company import JobPosting as JobPostingModel
         from models.records import (
             Application as ApplicationModel,
+        )
+        from models.records import (
             Interview as InterviewModel,
         )
-        from models.company import JobPosting as JobPostingModel
 
         interview_exists = (
             select(InterviewModel.id)
@@ -979,6 +988,7 @@ class StateManager:
             outcome: The parsed hiring decision string.
         """
         import uuid as uuid_mod
+
         from models.records import Interview as InterviewModel
 
         self._session.add(

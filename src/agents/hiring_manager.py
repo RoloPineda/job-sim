@@ -21,11 +21,11 @@ from schemas.profiles import HiringManagerProfile
 from schemas.records import ApplicationRecord, EventEntry, RecruiterHMMessage
 from schemas.states import HiringManagerState
 from tools.definitions import (
+    ADVANCE_CANDIDATE,
     GIVE_FEEDBACK_TO_RECRUITER,
     REJECT_CANDIDATE,
     REVIEW_FORWARDED_CANDIDATES,
     hiring_manager_tools,
-    ADVANCE_CANDIDATE,
 )
 
 logger = logging.getLogger(__name__)
