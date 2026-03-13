@@ -133,9 +133,7 @@ class InterviewOrchestrator:
             speaker_index = (turn_number - 1) % 2
             speaker = speakers[speaker_index]
 
-            content = await self._run_turn(
-                speaker.profile, transcript, turn_number, result
-            )
+            content = await self._run_turn(speaker.profile, transcript, turn_number, result)
             transcript.append(
                 {
                     "speaker": speaker.profile.name,
@@ -232,9 +230,7 @@ class InterviewOrchestrator:
         return _extract_text(response)
 
 
-def build_role_context(
-    posting: JobPosting, interviewer_name: str, candidate_name: str
-) -> str:
+def build_role_context(posting: JobPosting, interviewer_name: str, candidate_name: str) -> str:
     """Build the role context string for an interview.
 
     Assembles a description of the role from the posting that both
@@ -255,8 +251,7 @@ def build_role_context(
     salary_part = ""
     if posting.salary_range_low is not None and posting.salary_range_high is not None:
         salary_part = (
-            f"Compensation range: ${posting.salary_range_low:,} "
-            f"to ${posting.salary_range_high:,}. "
+            f"Compensation range: ${posting.salary_range_low:,} to ${posting.salary_range_high:,}. "
         )
 
     return (
@@ -299,9 +294,7 @@ def _parse_outcome(
                 token,
             )
             return "undecided"
-    logger.warning(
-        "No DECISION line found in interviewer assessment, defaulting to undecided"
-    )
+    logger.warning("No DECISION line found in interviewer assessment, defaulting to undecided")
     return "undecided"
 
 

@@ -35,8 +35,7 @@ _RETRYABLE_ERRORS = (RateLimitError, APITimeoutError, APIConnectionError)
 _MAX_TOKENS = 4096
 
 _SOFT_CAP_NUDGE = (
-    "\n\nYou're running low on time today. You can take one more "
-    "action or wrap up for the day."
+    "\n\nYou're running low on time today. You can take one more action or wrap up for the day."
 )
 
 # Approximate values for development monitoring. Not used for
@@ -139,9 +138,7 @@ class BaseAgent(ABC):
             NotImplementedError: If the agent type does not support
                 candidate screening.
         """
-        raise NotImplementedError(
-            f"{type(self).__name__} does not support candidate screening"
-        )
+        raise NotImplementedError(f"{type(self).__name__} does not support candidate screening")
 
     async def assess_interview(self, data: "InterviewData") -> str:
         """Produce a post-interview assessment.
@@ -162,9 +159,7 @@ class BaseAgent(ABC):
             NotImplementedError: If the agent type does not support
                 interview assessment.
         """
-        raise NotImplementedError(
-            f"{type(self).__name__} does not support interview assessment"
-        )
+        raise NotImplementedError(f"{type(self).__name__} does not support interview assessment")
 
     async def run_turn(
         self,
@@ -218,9 +213,7 @@ class BaseAgent(ABC):
             messages.append(
                 {
                     "role": "assistant",
-                    "content": [
-                        b.model_dump(exclude_none=True) for b in response.content
-                    ],
+                    "content": [b.model_dump(exclude_none=True) for b in response.content],
                 }
             )
 

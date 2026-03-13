@@ -73,8 +73,7 @@ _BROWSE_JOB_BOARD: dict[str, Any] = {
             "role_type": {
                 "type": "string",
                 "description": (
-                    "Filter by role type, e.g. 'software engineer' or "
-                    "'product manager'."
+                    "Filter by role type, e.g. 'software engineer' or 'product manager'."
                 ),
             },
             "seniority": {
@@ -89,8 +88,7 @@ _BROWSE_JOB_BOARD: dict[str, Any] = {
             "min_salary": {
                 "type": "integer",
                 "description": (
-                    "Minimum salary to filter on. Only works for "
-                    "postings that list salary."
+                    "Minimum salary to filter on. Only works for postings that list salary."
                 ),
             },
         },
@@ -131,8 +129,7 @@ _WRITE_RESUME: dict[str, Any] = {
             "target_posting_id": {
                 "type": "string",
                 "description": (
-                    "Tailor the resume for a specific posting. Leave "
-                    "empty for a general rewrite."
+                    "Tailor the resume for a specific posting. Leave empty for a general rewrite."
                 ),
             },
             "resume_text": {
@@ -286,8 +283,7 @@ _DO_INTERVIEW: dict[str, Any] = {
 _EVALUATE_OFFER: dict[str, Any] = {
     "name": EVALUATE_OFFER,
     "description": (
-        "Review a job offer. See the comp, benefits, role details, "
-        "and decide your next step."
+        "Review a job offer. See the comp, benefits, role details, and decide your next step."
     ),
     "input_schema": {
         "type": "object",
@@ -304,8 +300,7 @@ _EVALUATE_OFFER: dict[str, Any] = {
 _NEGOTIATE_OFFER: dict[str, Any] = {
     "name": NEGOTIATE_OFFER,
     "description": (
-        "Counter an offer with different terms. You decide what to "
-        "push on and how hard."
+        "Counter an offer with different terms. You decide what to push on and how hard."
     ),
     "input_schema": {
         "type": "object",
@@ -351,8 +346,7 @@ _DECLINE_OFFER: dict[str, Any] = {
             "reason": {
                 "type": "string",
                 "description": (
-                    "Why you're declining. Optional but may affect "
-                    "the employer's future behavior."
+                    "Why you're declining. Optional but may affect the employer's future behavior."
                 ),
             },
         },
@@ -487,9 +481,7 @@ _POST_OR_ADJUST_LISTING: dict[str, Any] = {
         "properties": {
             "posting_id": {
                 "type": "string",
-                "description": (
-                    "ID of existing posting to adjust, or omit to create a new one."
-                ),
+                "description": ("ID of existing posting to adjust, or omit to create a new one."),
             },
             "adjustments": {
                 "type": "string",

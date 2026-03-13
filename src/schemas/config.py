@@ -119,8 +119,7 @@ class RunConfig(BaseModel):
         low, high = self.postings_per_background_company_range
         if low < 1:
             raise ValueError(
-                f"postings_per_background_company_range lower bound "
-                f"({low}) must be at least 1"
+                f"postings_per_background_company_range lower bound ({low}) must be at least 1"
             )
         if low > high:
             raise ValueError(

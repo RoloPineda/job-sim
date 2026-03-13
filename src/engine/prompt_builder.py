@@ -213,9 +213,7 @@ class PromptBuilder:
             Complete message payload for the API call.
         """
         system = self.build_system_message(profile)
-        user = self.build_user_message(
-            context, round_number, profile.agent_type, notifications
-        )
+        user = self.build_user_message(context, round_number, profile.agent_type, notifications)
         formatted_tools = self.format_tools(tools)
 
         payload = MessagePayload(
@@ -256,9 +254,7 @@ class PromptBuilder:
         system = self.build_system_message(speaker_profile)
         if speaker_profile.agent_type in _INTERVIEWER_TYPES:
             system += "\n\n" + _INTERVIEWER_INSTRUCTIONS
-        messages = self._build_interview_messages(
-            speaker_profile.name, role_context, transcript
-        )
+        messages = self._build_interview_messages(speaker_profile.name, role_context, transcript)
         # Inject one turn before the hard stop so the agent can close
         # naturally rather than getting cut off mid-thought.
         if turn_number >= self._interview_turn_ceiling - 1:
@@ -267,9 +263,7 @@ class PromptBuilder:
                 "bringing your remaining points to a close."
             )
 
-        return MessagePayload(
-            system=system, messages=cast(list[MessageParam], messages)
-        )
+        return MessagePayload(system=system, messages=cast(list[MessageParam], messages))
 
     def _build_interview_messages(
         self,

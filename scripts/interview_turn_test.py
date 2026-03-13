@@ -293,9 +293,7 @@ def _log_response(
         latency: Wall time for the API call in seconds.
         model: Model version string used for cost estimation.
     """
-    cost = _estimate_cost(
-        model, response.usage.input_tokens, response.usage.output_tokens
-    )
+    cost = _estimate_cost(model, response.usage.input_tokens, response.usage.output_tokens)
 
     log.debug("\n--- RESPONSE ---")
     log.debug("  Stop reason: %s", response.stop_reason)
@@ -377,9 +375,7 @@ async def run_interview(
         text = _extract_response_text(response)
         _log_response(speaker_profile.name, turn, response, text, latency, model)
 
-        turn_cost = _estimate_cost(
-            model, response.usage.input_tokens, response.usage.output_tokens
-        )
+        turn_cost = _estimate_cost(model, response.usage.input_tokens, response.usage.output_tokens)
         total_input_tokens += response.usage.input_tokens
         total_output_tokens += response.usage.output_tokens
         total_cost += turn_cost

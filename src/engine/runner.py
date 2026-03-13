@@ -231,9 +231,7 @@ class SimulationRunner:
 
         await self._schedule_background_outcomes(applications, round_number)
 
-    async def _run_recruiter_turns(
-        self, bundles: list[RecruiterBundle], round_number: int
-    ) -> None:
+    async def _run_recruiter_turns(self, bundles: list[RecruiterBundle], round_number: int) -> None:
         """Runs all recruiter turns concurrently and persists results.
 
         Args:
@@ -268,9 +266,7 @@ class SimulationRunner:
             bundles, all_messages, all_events, modified_apps
         )
 
-    async def _run_hm_turns(
-        self, bundles: list[HiringManagerBundle], round_number: int
-    ) -> None:
+    async def _run_hm_turns(self, bundles: list[HiringManagerBundle], round_number: int) -> None:
         """Runs all hiring manager turns concurrently and persists results.
 
         Args:
@@ -320,9 +316,7 @@ class SimulationRunner:
             applications: All applications submitted this round.
             round_number: Current round.
         """
-        background_apps = await self._state_manager.detect_background_applications(
-            applications
-        )
+        background_apps = await self._state_manager.detect_background_applications(applications)
 
         for app, responsiveness, company_id in background_apps:
             if responsiveness == "ghosts":
@@ -412,19 +406,13 @@ class SimulationRunner:
         tasks = []
         for b in job_seeker_bundles:
             if should_compress(b.state, self._config):
-                tasks.append(
-                    compress_history(b.state, self._config, self._client, b.profile.id)
-                )
+                tasks.append(compress_history(b.state, self._config, self._client, b.profile.id))
         for b in recruiter_bundles:
             if should_compress(b.state, self._config):
-                tasks.append(
-                    compress_history(b.state, self._config, self._client, b.profile.id)
-                )
+                tasks.append(compress_history(b.state, self._config, self._client, b.profile.id))
         for b in hm_bundles:
             if should_compress(b.state, self._config):
-                tasks.append(
-                    compress_history(b.state, self._config, self._client, b.profile.id)
-                )
+                tasks.append(compress_history(b.state, self._config, self._client, b.profile.id))
 
         if tasks:
             await asyncio.gather(*tasks)

@@ -182,9 +182,7 @@ class HiringManagerAgent(BaseAgent):
             "DECISION: ADVANCE or REJECT or UNDECIDED"
         )
 
-        response = await self.call_api(
-            system, [{"role": "user", "content": user_content}]
-        )
+        response = await self.call_api(system, [{"role": "user", "content": user_content}])
         text = ""
         for block in response.content:
             if hasattr(block, "text"):
@@ -251,9 +249,7 @@ class HiringManagerAgent(BaseAgent):
             role = posting.title if posting else app.posting_id
 
             forward = self._find_forward_message(app.id)
-            framing = (
-                f" -- Recruiter's take: {forward.content[:150]}" if forward else ""
-            )
+            framing = f" -- Recruiter's take: {forward.content[:150]}" if forward else ""
 
             lines.append(f"- {candidate_name} for {role} ({app.id}){framing}")
         lines.append("")
@@ -267,9 +263,7 @@ class HiringManagerAgent(BaseAgent):
         """
         sections = []
 
-        forwards = [
-            m for m in self._recruiter_messages if m.message_type == "candidate_forward"
-        ]
+        forwards = [m for m in self._recruiter_messages if m.message_type == "candidate_forward"]
         if forwards:
             sections.append(f"Candidates forwarded to you: {len(forwards)}")
 
@@ -277,14 +271,10 @@ class HiringManagerAgent(BaseAgent):
         if nudges:
             sections.append(f"Pending nudges from recruiters: {len(nudges)}")
             for nudge in nudges[-3:]:
-                recruiter_name = self._recruiter_info.get(
-                    nudge.sender_id, nudge.sender_id
-                )
+                recruiter_name = self._recruiter_info.get(nudge.sender_id, nudge.sender_id)
                 sections.append(f"  - {recruiter_name}: {nudge.content[:200]}")
 
-        own_feedback = [
-            m for m in self._recruiter_messages if m.message_type == "feedback"
-        ]
+        own_feedback = [m for m in self._recruiter_messages if m.message_type == "feedback"]
         if own_feedback:
             sections.append("Your recent feedback to recruiters:")
             for fb in own_feedback[-3:]:
@@ -369,8 +359,7 @@ class HiringManagerAgent(BaseAgent):
         candidates = [
             a
             for a in self._applications.values()
-            if a.status == "reviewed"
-            and (posting_id is None or a.posting_id == posting_id)
+            if a.status == "reviewed" and (posting_id is None or a.posting_id == posting_id)
         ]
 
         if not candidates:
@@ -387,8 +376,7 @@ class HiringManagerAgent(BaseAgent):
             lines = [
                 f"Application: {app.id}",
                 f"  Candidate: {candidate_name}",
-                f"  Role: {posting.title if posting else app.posting_id}"
-                f" ({app.posting_id})",
+                f"  Role: {posting.title if posting else app.posting_id} ({app.posting_id})",
             ]
 
             if posting:
@@ -397,21 +385,16 @@ class HiringManagerAgent(BaseAgent):
 
             forward = self._find_forward_message(app.id)
             if forward:
-                recruiter_name = self._recruiter_info.get(
-                    forward.sender_id, forward.sender_id
-                )
-                lines.append(
-                    f"  Recruiter ({recruiter_name}) assessment: {forward.content}"
-                )
+                recruiter_name = self._recruiter_info.get(forward.sender_id, forward.sender_id)
+                lines.append(f"  Recruiter ({recruiter_name}) assessment: {forward.content}")
 
             resume_text = seeker.get("resume", "No resume available.")
             lines.append(f"  Resume:\n{resume_text}")
 
             formatted.append("\n".join(lines))
 
-        return (
-            f"Found {len(candidates)} forwarded candidate(s):\n\n"
-            + "\n\n---\n\n".join(formatted)
+        return f"Found {len(candidates)} forwarded candidate(s):\n\n" + "\n\n---\n\n".join(
+            formatted
         )
 
     async def _give_feedback_to_recruiter(self, tool_input: dict[str, Any]) -> str:
@@ -623,6 +606,5 @@ class HiringManagerAgent(BaseAgent):
             posting_title,
         )
         return (
-            f"Advanced {candidate_name} for {posting_title} to "
-            f"interview stage ({application_id})."
+            f"Advanced {candidate_name} for {posting_title} to interview stage ({application_id})."
         )

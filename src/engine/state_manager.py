@@ -222,9 +222,7 @@ class StateManager:
             state = self._hydrate_recruiter_state(orm, round_number)
 
             posting_ids = [p.id for p in orm.assigned_postings]
-            postings = [
-                await self._orm_posting_to_pydantic(p) for p in orm.assigned_postings
-            ]
+            postings = [await self._orm_posting_to_pydantic(p) for p in orm.assigned_postings]
 
             applications = await self._load_applications_for_postings(posting_ids)
             hm_messages = await self._load_messages_for_agent(orm.id)
@@ -266,9 +264,7 @@ class StateManager:
             profile = self._hydrate_hm_profile(orm)
             state = self._hydrate_hm_state(orm, round_number)
 
-            postings = [
-                await self._orm_posting_to_pydantic(p) for p in orm.managed_postings
-            ]
+            postings = [await self._orm_posting_to_pydantic(p) for p in orm.managed_postings]
 
             applications = await self._load_forwarded_applications(
                 [p.id for p in orm.managed_postings]
@@ -323,9 +319,7 @@ class StateManager:
 
         return applications
 
-    async def _persist_resume_versions(
-        self, resume_versions: list[ResumeVersion]
-    ) -> None:
+    async def _persist_resume_versions(self, resume_versions: list[ResumeVersion]) -> None:
         """Writes new resume versions to the database.
 
         Args:
@@ -341,9 +335,7 @@ class StateManager:
                     full_text=rv.full_text,
                     trigger=rv.trigger,
                     target_posting_id=(
-                        self._to_uuid(rv.target_posting_id)
-                        if rv.target_posting_id
-                        else None
+                        self._to_uuid(rv.target_posting_id) if rv.target_posting_id else None
                     ),
                     state_summary_at_creation=rv.state_summary_at_creation,
                 )
@@ -372,9 +364,7 @@ class StateManager:
             if recruiter_id:
                 app.recruiter_id = str(recruiter_id)
 
-    async def _persist_applications(
-        self, applications: list[ApplicationRecord]
-    ) -> None:
+    async def _persist_applications(self, applications: list[ApplicationRecord]) -> None:
         """Writes applications to the database.
 
         Only persists applications that have a recruiter_id assigned,
@@ -599,9 +589,7 @@ class StateManager:
             communication_ability=cast(CommunicationAbility, orm.communication_ability),
         )
 
-    def _hydrate_job_seeker_state(
-        self, orm: JobSeeker, round_number: int
-    ) -> JobSeekerState:
+    def _hydrate_job_seeker_state(self, orm: JobSeeker, round_number: int) -> JobSeekerState:
         if orm.state and round_number > 1:
             state = JobSeekerState.model_validate(orm.state)
             state.round_number = round_number
@@ -637,9 +625,7 @@ class StateManager:
             current_workload=orm.current_workload,
         )
 
-    def _hydrate_recruiter_state(
-        self, orm: Recruiter, round_number: int
-    ) -> RecruiterState:
+    def _hydrate_recruiter_state(self, orm: Recruiter, round_number: int) -> RecruiterState:
         if orm.state and round_number > 1:
             state = RecruiterState.model_validate(orm.state)
             state.round_number = round_number
@@ -665,9 +651,7 @@ class StateManager:
             feedback_clarity=cast(FeedbackClarity, orm.feedback_clarity),
         )
 
-    def _hydrate_hm_state(
-        self, orm: HiringManager, round_number: int
-    ) -> HiringManagerState:
+    def _hydrate_hm_state(self, orm: HiringManager, round_number: int) -> HiringManagerState:
         if orm.state and round_number > 1:
             state = HiringManagerState.model_validate(orm.state)
             state.round_number = round_number
@@ -706,9 +690,7 @@ class StateManager:
             recruiter_id=str(orm.recruiter_id) if orm.recruiter_id else None,
             resume_version_id=str(orm.resume_version_id),
             cover_letter_version_id=(
-                str(orm.cover_letter_version_id)
-                if orm.cover_letter_version_id
-                else None
+                str(orm.cover_letter_version_id) if orm.cover_letter_version_id else None
             ),
             round_submitted=orm.round_submitted,
             status=cast(ApplicationStatus, orm.status),
@@ -763,15 +745,12 @@ class StateManager:
         result = await self._session.execute(stmt)
         return [self._orm_application_to_pydantic(a) for a in result.scalars().all()]
 
-    async def _load_messages_for_agent(
-        self, agent_id: uuid_mod.UUID
-    ) -> list[RecruiterHMMessage]:
+    async def _load_messages_for_agent(self, agent_id: uuid_mod.UUID) -> list[RecruiterHMMessage]:
         stmt = (
             select(MessageModel)
             .where(
                 MessageModel.run_id == self._run_id,
-                (MessageModel.sender_id == agent_id)
-                | (MessageModel.receiver_id == agent_id),
+                (MessageModel.sender_id == agent_id) | (MessageModel.receiver_id == agent_id),
             )
             .order_by(MessageModel.round_sent)
         )
@@ -800,9 +779,7 @@ class StateManager:
             }
         return info
 
-    async def _build_recruiter_info(
-        self, messages: list[RecruiterHMMessage]
-    ) -> dict[str, str]:
+    async def _build_recruiter_info(self, messages: list[RecruiterHMMessage]) -> dict[str, str]:
         recruiter_ids = set()
         for msg in messages:
             recruiter_ids.add(msg.sender_id)
@@ -869,9 +846,7 @@ class StateManager:
                 EventModel(
                     id=self._to_uuid(event.id),
                     run_id=self._run_id,
-                    agent_id=(
-                        self._to_uuid(event.agent_id) if event.agent_id else None
-                    ),
+                    agent_id=(self._to_uuid(event.agent_id) if event.agent_id else None),
                     round_number=event.round_number,
                     event_type=event.event_type,
                     details=event.details,
@@ -879,9 +854,7 @@ class StateManager:
                 )
             )
 
-    async def _update_application_statuses(
-        self, applications: list[ApplicationRecord]
-    ) -> None:
+    async def _update_application_statuses(self, applications: list[ApplicationRecord]) -> None:
         for app in applications:
             if app.status_updated_round is not None:
                 stmt = (

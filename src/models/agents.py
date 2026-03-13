@@ -153,9 +153,7 @@ class JobSeeker(Agent):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), primary_key=True
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), primary_key=True)
     education_history: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
     actual_skills: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     work_history: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
@@ -202,12 +200,8 @@ class Recruiter(Agent):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), primary_key=True
-    )
-    company_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("companies.id"), nullable=False
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), primary_key=True)
+    company_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False)
     experience_level: Mapped[str] = mapped_column(String(20), nullable=False)
     current_workload: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -261,12 +255,8 @@ class HiringManager(Agent):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), primary_key=True
-    )
-    company_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("companies.id"), nullable=False
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), primary_key=True)
+    company_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("companies.id"), nullable=False)
     team_size: Mapped[int] = mapped_column(Integer, nullable=False)
     team_situation: Mapped[str] = mapped_column(String(20), nullable=False)
     management_style: Mapped[str] = mapped_column(String(20), nullable=False)

@@ -42,10 +42,7 @@ def should_compress(state: AgentState, config: RunConfig) -> bool:
     Returns:
         True if the current round triggers compression.
     """
-    return (
-        state.round_number > 1
-        and state.round_number % config.compression_frequency == 0
-    )
+    return state.round_number > 1 and state.round_number % config.compression_frequency == 0
 
 
 def _partition_events(

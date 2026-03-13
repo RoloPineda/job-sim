@@ -61,9 +61,7 @@ def _format_posting(posting: JobPosting, current_round: int) -> str:
         f"  Seniority: {posting.seniority}",
     ]
     if posting.salary_range_low is not None and posting.salary_range_high is not None:
-        lines.append(
-            f"  Salary: ${posting.salary_range_low:,} - ${posting.salary_range_high:,}"
-        )
+        lines.append(f"  Salary: ${posting.salary_range_low:,} - ${posting.salary_range_high:,}")
     elif posting.salary_range_low is not None:
         lines.append(f"  Salary: from ${posting.salary_range_low:,}")
     else:
@@ -103,9 +101,7 @@ def _format_education(profile: JobSeekerProfile) -> str:
     Returns:
         Comma-separated education entries.
     """
-    return ", ".join(
-        f"{e.degree} from {e.school} ({e.year})" for e in profile.education_history
-    )
+    return ", ".join(f"{e.degree} from {e.school} ({e.year})" for e in profile.education_history)
 
 
 class JobSeekerAgent(BaseAgent):
@@ -287,9 +283,7 @@ class JobSeekerAgent(BaseAgent):
             "- Anything you wish you had said or done differently"
         )
 
-        response = await self.call_api(
-            system, [{"role": "user", "content": user_content}]
-        )
+        response = await self.call_api(system, [{"role": "user", "content": user_content}])
         text = ""
         for block in response.content:
             if hasattr(block, "text"):
@@ -406,9 +400,7 @@ class JobSeekerAgent(BaseAgent):
         if posting.status != "open":
             return f"Posting '{posting_id}' is no longer accepting applications."
 
-        resume_version_id = (
-            self.resume_versions[-1].id if self.resume_versions else "pre-existing"
-        )
+        resume_version_id = self.resume_versions[-1].id if self.resume_versions else "pre-existing"
 
         app_id = f"app-{uuid.uuid4().hex[:8]}"
         application = ApplicationRecord(

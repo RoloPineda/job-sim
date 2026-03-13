@@ -177,9 +177,7 @@ class RecruiterAgent(BaseAgent):
         role_history = self._collect_role_history(app.posting_id)
         sections.extend(role_history.lines)
         sections.append(
-            self._compute_signal_strength(
-                resume_text, role_history.has_feedback, posting
-            )
+            self._compute_signal_strength(resume_text, role_history.has_feedback, posting)
         )
 
         return "\n".join(sections)
@@ -224,9 +222,7 @@ class RecruiterAgent(BaseAgent):
             "DECISION: ADVANCE or REJECT or UNDECIDED"
         )
 
-        response = await self.call_api(
-            system, [{"role": "user", "content": user_content}]
-        )
+        response = await self.call_api(system, [{"role": "user", "content": user_content}])
         text = ""
         for block in response.content:
             if hasattr(block, "text"):
@@ -292,9 +288,7 @@ class RecruiterAgent(BaseAgent):
             for fb in feedback[-3:]:
                 lines.append(f"    - {fb.content[:150]}")
         else:
-            lines.append(
-                "  HM feedback: none yet for this role (no signal on preferences)"
-            )
+            lines.append("  HM feedback: none yet for this role (no signal on preferences)")
 
         forwards = [
             m
@@ -450,9 +444,7 @@ class RecruiterAgent(BaseAgent):
         sections = []
         p = self._recruiter
 
-        forwards = [
-            m for m in self._hm_messages if m.message_type == "candidate_forward"
-        ]
+        forwards = [m for m in self._hm_messages if m.message_type == "candidate_forward"]
         feedback = [m for m in self._hm_messages if m.message_type == "feedback"]
 
         if forwards:
@@ -463,9 +455,7 @@ class RecruiterAgent(BaseAgent):
                 sections.append(f"  - {fb.content[:200]}")
             sections.append("")
 
-        sections.append(
-            f"Hiring managers you work with: {', '.join(p.hiring_manager_ids)}"
-        )
+        sections.append(f"Hiring managers you work with: {', '.join(p.hiring_manager_ids)}")
         sections.append("")
         return "\n".join(sections)
 
@@ -508,8 +498,7 @@ class RecruiterAgent(BaseAgent):
         pending = [
             a
             for a in self._applications.values()
-            if a.status == "pending"
-            and (posting_id is None or a.posting_id == posting_id)
+            if a.status == "pending" and (posting_id is None or a.posting_id == posting_id)
         ]
 
         if not pending:
@@ -525,8 +514,7 @@ class RecruiterAgent(BaseAgent):
             lines = [
                 f"Application: {app.id}",
                 f"  Candidate: {job_seeker.get('name', 'Unknown')}",
-                f"  Applied to: {posting.title if posting else app.posting_id}"
-                f" ({app.posting_id})",
+                f"  Applied to: {posting.title if posting else app.posting_id} ({app.posting_id})",
                 f"  Round submitted: {app.round_submitted}",
             ]
 
@@ -542,9 +530,7 @@ class RecruiterAgent(BaseAgent):
         self._screened_application_ids.update(new_ids)
         self._state.total_screened += len(new_ids)
 
-        return f"Found {len(pending)} pending application(s):\n\n" + "\n\n---\n\n".join(
-            formatted
-        )
+        return f"Found {len(pending)} pending application(s):\n\n" + "\n\n---\n\n".join(formatted)
 
     async def _forward_to_hiring_manager(self, tool_input: dict[str, Any]) -> str:
         """Forwards a candidate to the appropriate hiring manager.
@@ -604,8 +590,7 @@ class RecruiterAgent(BaseAgent):
             posting.title,
         )
         return (
-            f"Forwarded {candidate_name} to hiring manager {hm_id} "
-            f"for {posting.title} ({msg_id})."
+            f"Forwarded {candidate_name} to hiring manager {hm_id} for {posting.title} ({msg_id})."
         )
 
     async def _manage_candidate_communication(self, tool_input: dict[str, Any]) -> str:
@@ -668,8 +653,7 @@ class RecruiterAgent(BaseAgent):
             posting_title,
         )
         return (
-            f"Sent {new_status} notification to {candidate_name} "
-            f"for {posting_title} ({event_id})."
+            f"Sent {new_status} notification to {candidate_name} for {posting_title} ({event_id})."
         )
 
     async def _nudge_hiring_manager(self, tool_input: dict[str, Any]) -> str:
