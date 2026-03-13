@@ -16,6 +16,7 @@ from anthropic import AsyncAnthropic
 from agents.base import BaseAgent
 from schemas.company import JobPosting
 from schemas.config import RunConfig
+from schemas.interview import InterviewData, format_transcript
 from schemas.profiles import HiringManagerProfile
 from schemas.records import ApplicationRecord, EventEntry, RecruiterHMMessage
 from schemas.states import HiringManagerState
@@ -144,17 +145,55 @@ class HiringManagerAgent(BaseAgent):
         )
         return _STUB_MESSAGE
 
-    async def evaluate(self, interaction: Any) -> str:
+    async def assess_interview(self, data: InterviewData) -> str:
         """Produce a post-interview assessment of a candidate.
 
+        Evaluates the candidate against the hiring manager's
+        technical bar, team needs, and past hiring patterns. An HM
+        with ``team_situation="understaffed"`` may be more willing
+        to advance borderline candidates than one with a stable team.
+        The ``feedback_clarity`` trait shapes how specific and
+        actionable the assessment is.
+
         Args:
-            interaction: Interview data to evaluate.
+            data: Interview transcript, role context, and candidate
+                name.
 
         Returns:
-            Assessment string.
+            Written assessment ending with a
+            ``DECISION: ADVANCE/REJECT/UNDECIDED`` line.
         """
-        # TODO: Implement once interview engine is built.
-        return "Post-interview evaluation not yet implemented."
+        system = self._prompt_builder.build_system_message(self.profile)
+
+        p = self._hm
+        transcript_text = format_transcript(data.transcript)
+
+        user_content = (
+            f"You just finished interviewing {data.other_party_name} "
+            f"for the following role:\n\n{data.role_context}\n\n"
+            f"Transcript:\n\n{transcript_text}\n\n"
+            f"Your hiring bar: {p.technical_bar}\n"
+            f"Team situation: {p.team_situation} "
+            f"(team size: {p.team_size})\n"
+            f"Past hiring context: {p.past_hiring_description}\n\n"
+            "Write your assessment of the candidate. Cover:\n"
+            "- Technical ability relative to the role requirements\n"
+            "- Team fit given your current team situation\n"
+            "- Communication quality and professionalism\n"
+            "- Any concerns or standout moments\n\n"
+            "Then state your decision on its own final line in "
+            "exactly this format:\n"
+            "DECISION: ADVANCE or REJECT or UNDECIDED"
+        )
+
+        response = await self.call_api(
+            system, [{"role": "user", "content": user_content}]
+        )
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text += block.text
+        return text.strip()
 
     def _build_role_header(self) -> str:
         """Builds the HM's identity, team context, and hiring bar.

@@ -14,6 +14,7 @@ from typing import Any, NamedTuple
 from anthropic import AsyncAnthropic
 
 from agents.base import BaseAgent
+from schemas.interview import InterviewData, format_transcript
 from schemas.profiles import RecruiterProfile
 from schemas.states import RecruiterState
 from schemas.company import JobPosting
@@ -149,21 +150,21 @@ class RecruiterAgent(BaseAgent):
             "[%s] stubbed tool called: %s", self.profile.id, tool_name
         )
         return _STUB_MESSAGE
-
-    async def evaluate(self, interaction: Any) -> str:
-        """Produces a structured assessment of candidate fit.
+    async def screen_candidate(self, interaction: Any) -> str:
+        """Produce a pre-interview screening assessment of a candidate.
 
         Validates the interaction, assembles candidate and role data,
         then layers in HM feedback history and a signal strength
-        indicator.
+        indicator. Called during the recruiter's regular turn when
+        screening applications.
 
         Args:
             interaction: A dict containing at minimum an
-                "application_id" key referencing a known application.
+            "application_id" key referencing a known application.
 
         Returns:
-            Multi-line assessment string, or a short message if the
-            interaction data is missing or invalid.
+            Multi-line screening assessment string, or a short message
+            if the interaction data is missing or invalid.
         """
         if not isinstance(interaction, dict):
             return "No interaction data to evaluate."
@@ -187,6 +188,55 @@ class RecruiterAgent(BaseAgent):
         )
 
         return "\n".join(sections)
+
+    async def assess_interview(self, data: InterviewData) -> str:
+        """Produce a post-interview candidate assessment.
+
+        Evaluates the candidate through the recruiter's lens,
+        considering experience level and knowledge of what the
+        hiring manager values. A junior recruiter may focus on
+        surface-level signals while a senior one picks up on
+        subtler fit indicators.
+
+        Args:
+            data: Interview transcript, role context, and candidate
+                name.
+
+        Returns:
+            Written assessment ending with a
+            ``DECISION: ADVANCE/REJECT/UNDECIDED`` line.
+        """
+        system = self._prompt_builder.build_system_message(self.profile)
+
+        p = self._recruiter
+        transcript_text = format_transcript(data.transcript)
+
+        user_content = (
+            f"You just finished a screening interview with "
+            f"{data.other_party_name} for the following role:\n\n"
+            f"{data.role_context}\n\n"
+            f"Transcript:\n\n{transcript_text}\n\n"
+            f"Your experience level: {p.experience_level}. "
+            f"Current workload: {p.current_workload} open roles.\n\n"
+            "Write your assessment of the candidate. Cover:\n"
+            "- Communication quality and professionalism\n"
+            "- Apparent fit for the role requirements\n"
+            "- Culture fit signals based on your knowledge of the "
+            "company\n"
+            "- Any red flags or standout qualities\n\n"
+            "Then state your decision on its own final line in "
+            "exactly this format:\n"
+            "DECISION: ADVANCE or REJECT or UNDECIDED"
+        )
+
+        response = await self.call_api(
+            system, [{"role": "user", "content": user_content}]
+        )
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text += block.text
+        return text.strip()
 
     def _format_evaluation_header(
         self,

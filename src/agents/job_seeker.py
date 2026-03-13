@@ -16,6 +16,7 @@ from anthropic import AsyncAnthropic
 from agents.base import BaseAgent
 from schemas.company import JobPosting
 from schemas.config import RunConfig
+from schemas.interview import InterviewData, format_transcript
 from schemas.profiles import JobSeekerProfile
 from schemas.records import ApplicationRecord, ResumeVersion
 from schemas.states import JobSeekerState
@@ -250,17 +251,55 @@ class JobSeekerAgent(BaseAgent):
         )
         return _STUB_MESSAGE
 
-    async def evaluate(self, interaction: Any) -> str:
+    async def assess_interview(self, data: InterviewData) -> str:
         """Produce a post-interview self-assessment.
 
+        Reflects on the interview from the candidate's perspective,
+        incorporating financial pressure, target preferences, and
+        perceived skills. A seeker with low savings and few options
+        will assess even a mediocre interview more favorably than
+        one with a comfortable runway.
+
         Args:
-            interaction: Interview data to evaluate.
+            data: Interview transcript, role context, and interviewer
+                name.
 
         Returns:
-            Assessment string.
+            The seeker's written self-assessment.
         """
-        # TODO: Implement once interview engine is built.
-        return "Post-interview evaluation not yet implemented."
+        system = self._prompt_builder.build_system_message(self.profile)
+
+        s = self._state
+        months_remaining = s.savings // s.burn_rate if s.burn_rate else "unknown"
+        transcript_text = format_transcript(data.transcript)
+
+        user_content = (
+            f"You just finished an interview with {data.other_party_name} "
+            f"for the following role:\n\n{data.role_context}\n\n"
+            f"Transcript:\n\n{transcript_text}\n\n"
+            f"Your current situation: ${s.savings:,} in savings with "
+            f"${s.burn_rate:,}/month in expenses ({months_remaining} "
+            f"months runway). You're targeting "
+            f"{', '.join(s.target_roles)} roles at the "
+            f"{s.target_seniority} level, "
+            f"${s.target_comp_low:,}-${s.target_comp_high:,}.\n\n"
+            "Reflect on how the interview went from your perspective. "
+            "Cover:\n"
+            "- How well you were able to present your skills and "
+            "experience\n"
+            "- Your impression of the interviewer and the role\n"
+            "- Whether this opportunity still interests you and why\n"
+            "- Anything you wish you had said or done differently"
+        )
+
+        response = await self.call_api(
+            system, [{"role": "user", "content": user_content}]
+        )
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text += block.text
+        return text.strip()
 
     async def _browse_job_board(self, tool_input: dict[str, Any]) -> str:
         """Filter and return visible postings matching the criteria.
