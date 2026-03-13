@@ -79,9 +79,7 @@ class TestBuildSystemMessage:
         ):
             assert forbidden not in lower
 
-    def test_seeker_instructions_not_prescriptive_on_communication(
-        self, builder, seeker_profile
-    ):
+    def test_seeker_instructions_not_prescriptive_on_communication(self, builder, seeker_profile):
         msg = builder.build_system_message(seeker_profile)
         assert "authentic" in msg
 
@@ -91,9 +89,7 @@ class TestBuildSystemMessage:
         msg = builder.build_system_message(recruiter_profile)
         assert "regardless of the outcome" not in msg
 
-    def test_hm_instructions_not_prescriptive_on_feedback_clarity(
-        self, builder, hm_profile
-    ):
+    def test_hm_instructions_not_prescriptive_on_feedback_clarity(self, builder, hm_profile):
         msg = builder.build_system_message(hm_profile)
         assert "vague direction" not in msg
 
@@ -195,9 +191,7 @@ class TestFormatTools:
 
 class TestBuildActionPayload:
     def test_assembles_all_pieces(self, builder, seeker_profile, sample_tools):
-        payload = builder.build_action_payload(
-            seeker_profile, "my context", 5, sample_tools
-        )
+        payload = builder.build_action_payload(seeker_profile, "my context", 5, sample_tools)
         assert "Sarah Chen" in payload["system"]
         assert "Current round: 5" in payload["messages"][0]["content"]
         assert len(payload["tools"]) == 2
@@ -358,9 +352,7 @@ class TestBuildInterviewMessages:
 
     def test_first_message_is_role_context(self, builder):
         transcript = [{"speaker": "Bob", "content": "Hello."}]
-        msgs = builder._build_interview_messages(
-            "Alice", "Opening context.", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "Opening context.", transcript)
         assert "Opening context." in msgs[0]["content"]
 
     def test_last_message_always_user_role(self, builder):
@@ -398,9 +390,7 @@ class TestBuildInterviewTurn:
             {"speaker": "Sarah Chen", "content": "I have 5 years of experience."},
             {"speaker": "Dana Reeves", "content": "What's your biggest strength?"},
         ]
-        payload = builder.build_interview_turn(
-            seeker_profile, "Interview context.", transcript, 4
-        )
+        payload = builder.build_interview_turn(seeker_profile, "Interview context.", transcript, 4)
         messages = payload["messages"]
         assert messages[0]["role"] == "user"
         assert "Interview context." in messages[0]["content"]
@@ -414,17 +404,13 @@ class TestBuildInterviewTurn:
             {"speaker": "Dana Reeves", "content": "First question."},
             {"speaker": "Dana Reeves", "content": "Actually, let me rephrase."},
         ]
-        payload = builder.build_interview_turn(
-            seeker_profile, "Interview context.", transcript, 2
-        )
+        payload = builder.build_interview_turn(seeker_profile, "Interview context.", transcript, 2)
         messages = payload["messages"]
         assert len(messages) == 1
         assert "First question." in messages[0]["content"]
         assert "let me rephrase" in messages[0]["content"]
 
-    def test_appends_continue_when_transcript_ends_on_speaker(
-        self, builder, seeker_profile
-    ):
+    def test_appends_continue_when_transcript_ends_on_speaker(self, builder, seeker_profile):
         transcript = [
             {"speaker": "Dana Reeves", "content": "Tell me about yourself."},
             {"speaker": "Sarah Chen", "content": "I have 5 years of experience."},
