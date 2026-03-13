@@ -41,6 +41,14 @@ _HM_INSTRUCTIONS = (
     "right now."
 )
 
+_INTERVIEWER_TYPES = {"recruiter", "hiring_manager"}
+
+_INTERVIEWER_INSTRUCTIONS = (
+    "Ask questions and make statements as you naturally would. "
+    "Do not explain what you are testing for or what a question "
+    "is designed to reveal."
+)
+
 _BEHAVIORAL_INSTRUCTIONS: dict[str, str] = {
     "job_seeker": _SEEKER_INSTRUCTIONS,
     "recruiter": _RECRUITER_INSTRUCTIONS,
@@ -106,6 +114,13 @@ class PromptBuilder:
             f"{profile.disposition}\n\n"
             f"{profile.backstory}\n\n"
             f"{instructions}"
+            "Respond with only your spoken words. Do not include "
+            "actions, stage directions, gestures, or descriptions "
+            "of body language. Do not compliment or validate the "
+            "other person's questions or statements before answering."
+            "Do not open your response by agreeing with, complimenting, "
+            "or acknowledging the other person's question or statement. "
+            "Answer directly."
         )
 
     def build_user_message(
@@ -237,6 +252,8 @@ class PromptBuilder:
             Complete message payload for the API call.
         """
         system = self.build_system_message(speaker_profile)
+        if speaker_profile.agent_type in _INTERVIEWER_TYPES:
+            system += "\n\n" + _INTERVIEWER_INSTRUCTIONS
         messages = self._build_interview_messages(
             speaker_profile.name, role_context, transcript
         )
