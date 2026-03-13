@@ -1,6 +1,6 @@
 """Interview path validation script.
 
-Runs a multi-turn interview between Sarah Chen (job seeker) and
+Runs a multi-turn interview between Sarah Chen (jobseeker) and
 Dana Reeves (hiring manager) against the real Anthropic API. Builds
 the transcript incrementally, alternating speakers, and logs every
 payload and response.
@@ -31,6 +31,7 @@ load_dotenv()
 from anthropic import AsyncAnthropic
 from anthropic.types import Message, TextBlock
 
+from agents.base import _estimate_cost, _model_short
 from engine.prompt_builder import PromptBuilder
 from schemas.config import RunConfig
 from schemas.profiles import HiringManagerProfile, JobSeekerProfile
@@ -95,8 +96,14 @@ def build_sarah() -> JobSeekerProfile:
             Education(school="UT Austin", degree="BS Computer Science", year=2019),
         ],
         actual_skills=[
-            "Python", "SQL", "Spark", "Airflow", "scikit-learn",
-            "PyTorch", "data modeling", "A/B testing",
+            "Python",
+            "SQL",
+            "Spark",
+            "Airflow",
+            "scikit-learn",
+            "PyTorch",
+            "data modeling",
+            "A/B testing",
         ],
         perceived_skills=["Python", "SQL", "Airflow", "some ML"],
         work_history=[
@@ -262,7 +269,9 @@ def _log_payload(
         if roles[i] == roles[i - 1]:
             log.warning(
                 "ALTERNATION VIOLATION at index %d: %s follows %s",
-                i, roles[i], roles[i - 1],
+                i,
+                roles[i],
+                roles[i - 1],
             )
 
 
@@ -272,6 +281,7 @@ def _log_response(
     response: Message,
     text: str,
     latency: float,
+    model: str,
 ) -> None:
     """Logs the API response details.
 
@@ -281,7 +291,12 @@ def _log_response(
         response: Raw API response.
         text: Extracted text from the response.
         latency: Wall time for the API call in seconds.
+        model: Model version string used for cost estimation.
     """
+    cost = _estimate_cost(
+        model, response.usage.input_tokens, response.usage.output_tokens
+    )
+
     log.debug("\n--- RESPONSE ---")
     log.debug("  Stop reason: %s", response.stop_reason)
     log.debug(
@@ -289,15 +304,17 @@ def _log_response(
         response.usage.input_tokens,
         response.usage.output_tokens,
     )
+    log.debug("  Cost: $%.4f", cost)
     log.debug("  Latency: %.1fs", latency)
     log.debug("  Text:\n%s", text)
 
     log.info(
-        "  Turn %d [%s]: %d tokens in, %d tokens out, %.1fs",
+        "  Turn %d [%s]: %d in, %d out, $%.4f, %.1fs",
         turn_number,
         speaker_name,
         response.usage.input_tokens,
         response.usage.output_tokens,
+        cost,
         latency,
     )
 
@@ -330,6 +347,8 @@ async def run_interview(
     transcript: list[dict[str, str]] = []
     total_input_tokens = 0
     total_output_tokens = 0
+    total_cost = 0.0
+    model = config.sonnet_model_version
 
     for turn in range(1, max_turns + 1):
         if turn % 2 == 1:
@@ -348,7 +367,7 @@ async def run_interview(
 
         t0 = time.monotonic()
         response = await client.messages.create(
-            model=config.sonnet_model_version,
+            model=model,
             system=payload["system"],
             messages=payload["messages"],
             max_tokens=1024,
@@ -356,23 +375,31 @@ async def run_interview(
         latency = time.monotonic() - t0
 
         text = _extract_response_text(response)
-        _log_response(speaker_profile.name, turn, response, text, latency)
+        _log_response(speaker_profile.name, turn, response, text, latency, model)
 
+        turn_cost = _estimate_cost(
+            model, response.usage.input_tokens, response.usage.output_tokens
+        )
         total_input_tokens += response.usage.input_tokens
         total_output_tokens += response.usage.output_tokens
+        total_cost += turn_cost
 
-        transcript.append({
-            "speaker": speaker_profile.name,
-            "content": text,
-        })
+        transcript.append(
+            {
+                "speaker": speaker_profile.name,
+                "content": text,
+            }
+        )
 
     log.info("")
     log.info("=" * 60)
     log.info("INTERVIEW SUMMARY")
     log.info("=" * 60)
-    log.info("  Turns completed: %d", len(transcript))
+    log.info("  Model:               %s (%s)", model, _model_short(model))
+    log.info("  Turns completed:     %d", len(transcript))
     log.info("  Total input tokens:  %s", f"{total_input_tokens:,}")
     log.info("  Total output tokens: %s", f"{total_output_tokens:,}")
+    log.info("  Estimated cost:      $%.4f", total_cost)
 
     return transcript
 
@@ -415,9 +442,7 @@ async def main() -> None:
     log.info("")
 
     t0 = time.monotonic()
-    transcript = await run_interview(
-        client, builder, config, sarah, dana, max_turns
-    )
+    transcript = await run_interview(client, builder, config, sarah, dana, max_turns)
     elapsed = time.monotonic() - t0
 
     _log_transcript(transcript)

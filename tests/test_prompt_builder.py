@@ -330,9 +330,7 @@ class TestBuildInterviewMessages:
             {"speaker": "Alice", "content": "Hi Bob."},
             {"speaker": "Bob", "content": "How are you?"},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "Role context.", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "Role context.", transcript)
         assert msgs[0]["role"] == "user"
         assert "Role context." in msgs[0]["content"]
         assert msgs[1]["role"] == "assistant"
@@ -343,9 +341,7 @@ class TestBuildInterviewMessages:
             {"speaker": "Bob", "content": "Question?"},
             {"speaker": "Alice", "content": "Answer."},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "context", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "context", transcript)
         assert msgs[-1]["role"] == "user"
         assert msgs[-1]["content"] == "Please continue."
 
@@ -354,9 +350,7 @@ class TestBuildInterviewMessages:
             {"speaker": "Bob", "content": "Part one."},
             {"speaker": "Bob", "content": "Part two."},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "context", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "context", transcript)
         assert len(msgs) == 1
         assert "context" in msgs[0]["content"]
         assert "Part one." in msgs[0]["content"]
@@ -374,15 +368,11 @@ class TestBuildInterviewMessages:
             {"speaker": "Bob", "content": "Q?"},
             {"speaker": "Alice", "content": "A."},
         ]
-        msgs = builder._build_interview_messages(
-            "Alice", "ctx", transcript
-        )
+        msgs = builder._build_interview_messages("Alice", "ctx", transcript)
         assert msgs[-1]["role"] == "user"
 
         transcript2 = [{"speaker": "Bob", "content": "Q?"}]
-        msgs2 = builder._build_interview_messages(
-            "Alice", "ctx", transcript2
-        )
+        msgs2 = builder._build_interview_messages("Alice", "ctx", transcript2)
         assert msgs2[-1]["role"] == "user"
 
 
@@ -480,33 +470,51 @@ class TestBuildInterviewTurn:
 
     def test_interviewer_instruction_for_hm(self, builder, hm_profile):
         payload = builder.build_interview_turn(
-            hm_profile, "context",
-            [{"speaker": "Sarah Chen", "content": "Hello."}], 1,
+            hm_profile,
+            "context",
+            [{"speaker": "Sarah Chen", "content": "Hello."}],
+            1,
         )
         assert "what you are testing for" in payload["system"]
 
     def test_interviewer_instruction_for_recruiter(self, builder, recruiter_profile):
         payload = builder.build_interview_turn(
-            recruiter_profile, "context",
-            [{"speaker": "Sarah Chen", "content": "Hello."}], 1,
+            recruiter_profile,
+            "context",
+            [{"speaker": "Sarah Chen", "content": "Hello."}],
+            1,
         )
         assert "what you are testing for" in payload["system"]
 
     def test_no_interviewer_instruction_for_seeker(self, builder, seeker_profile):
         payload = builder.build_interview_turn(
-            seeker_profile, "context",
-            [{"speaker": "Dana Reeves", "content": "Hello."}], 1,
+            seeker_profile,
+            "context",
+            [{"speaker": "Dana Reeves", "content": "Hello."}],
+            1,
         )
         assert "what you are testing for" not in payload["system"]
 
     def test_end_to_end_payload_shape(self, builder, seeker_profile):
         """Integration test: realistic inputs produce a valid payload."""
         transcript = [
-            {"speaker": "Dana Reeves", "content": "Welcome, Sarah. Tell me about yourself."},
-            {"speaker": "Sarah Chen", "content": "Thanks! I have 5 years of backend experience."},
+            {
+                "speaker": "Dana Reeves",
+                "content": "Welcome, Sarah. Tell me about yourself.",
+            },
+            {
+                "speaker": "Sarah Chen",
+                "content": "Thanks! I have 5 years of backend experience.",
+            },
             {"speaker": "Dana Reeves", "content": "What drew you to this role?"},
-            {"speaker": "Sarah Chen", "content": "The technical challenges and team culture."},
-            {"speaker": "Dana Reeves", "content": "Describe a tough debugging scenario."},
+            {
+                "speaker": "Sarah Chen",
+                "content": "The technical challenges and team culture.",
+            },
+            {
+                "speaker": "Dana Reeves",
+                "content": "Describe a tough debugging scenario.",
+            },
         ]
         payload = builder.build_interview_turn(
             seeker_profile,

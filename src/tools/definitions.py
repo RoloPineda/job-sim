@@ -488,8 +488,7 @@ _POST_OR_ADJUST_LISTING: dict[str, Any] = {
             "posting_id": {
                 "type": "string",
                 "description": (
-                    "ID of existing posting to adjust, or omit to "
-                    "create a new one."
+                    "ID of existing posting to adjust, or omit to create a new one."
                 ),
             },
             "adjustments": {

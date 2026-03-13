@@ -116,13 +116,9 @@ class RecruiterAgent(BaseAgent):
             self._build_hm_relationship_summary(),
             self._build_history_section(),
         ]
-        return "\n".join(
-            section for section in sections if section
-        )
+        return "\n".join(section for section in sections if section)
 
-    async def handle_tool_call(
-        self, tool_name: str, tool_input: dict[str, Any]
-    ) -> str:
+    async def handle_tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Dispatches a tool call to the appropriate handler.
 
         Implemented tools execute their full logic. Stubbed tools return
@@ -146,10 +142,9 @@ class RecruiterAgent(BaseAgent):
         if handler:
             return await handler(tool_input)
 
-        logger.info(
-            "[%s] stubbed tool called: %s", self.profile.id, tool_name
-        )
+        logger.info("[%s] stubbed tool called: %s", self.profile.id, tool_name)
         return _STUB_MESSAGE
+
     async def screen_candidate(self, interaction: Any) -> str:
         """Produce a pre-interview screening assessment of a candidate.
 
@@ -265,9 +260,7 @@ class RecruiterAgent(BaseAgent):
 
         if posting:
             lines.append(f"  Seniority: {posting.seniority}")
-            lines.append(
-                f"  Requirements: {', '.join(posting.requirements)}"
-            )
+            lines.append(f"  Requirements: {', '.join(posting.requirements)}")
 
         resume_text = job_seeker.get("resume")
         if resume_text:
@@ -300,15 +293,13 @@ class RecruiterAgent(BaseAgent):
                 lines.append(f"    - {fb.content[:150]}")
         else:
             lines.append(
-                "  HM feedback: none yet for this role (no signal on "
-                "preferences)"
+                "  HM feedback: none yet for this role (no signal on preferences)"
             )
 
         forwards = [
             m
             for m in self._hm_messages
-            if m.message_type == "candidate_forward"
-            and m.posting_id == posting_id
+            if m.message_type == "candidate_forward" and m.posting_id == posting_id
         ]
         if forwards:
             lines.append(f"  Prior forwards for this role: {len(forwards)}")
@@ -460,12 +451,9 @@ class RecruiterAgent(BaseAgent):
         p = self._recruiter
 
         forwards = [
-            m for m in self._hm_messages
-            if m.message_type == "candidate_forward"
+            m for m in self._hm_messages if m.message_type == "candidate_forward"
         ]
-        feedback = [
-            m for m in self._hm_messages if m.message_type == "feedback"
-        ]
+        feedback = [m for m in self._hm_messages if m.message_type == "feedback"]
 
         if forwards:
             sections.append(f"Candidates forwarded to HMs: {len(forwards)}")
@@ -476,8 +464,7 @@ class RecruiterAgent(BaseAgent):
             sections.append("")
 
         sections.append(
-            f"Hiring managers you work with: "
-            f"{', '.join(p.hiring_manager_ids)}"
+            f"Hiring managers you work with: {', '.join(p.hiring_manager_ids)}"
         )
         sections.append("")
         return "\n".join(sections)
@@ -498,9 +485,7 @@ class RecruiterAgent(BaseAgent):
         if s.recent_events:
             sections.append("Recent events:")
             for event in s.recent_events:
-                sections.append(
-                    f"- {event.get('description', str(event))}"
-                )
+                sections.append(f"- {event.get('description', str(event))}")
 
         return "\n".join(sections)
 
@@ -549,9 +534,7 @@ class RecruiterAgent(BaseAgent):
             lines.append(f"  Resume:\n{resume_text}")
 
             if posting:
-                lines.append(
-                    f"  Role requirements: {', '.join(posting.requirements)}"
-                )
+                lines.append(f"  Role requirements: {', '.join(posting.requirements)}")
 
             formatted.append("\n".join(lines))
 
@@ -559,14 +542,11 @@ class RecruiterAgent(BaseAgent):
         self._screened_application_ids.update(new_ids)
         self._state.total_screened += len(new_ids)
 
-        return (
-            f"Found {len(pending)} pending application(s):\n\n"
-            + "\n\n---\n\n".join(formatted)
+        return f"Found {len(pending)} pending application(s):\n\n" + "\n\n---\n\n".join(
+            formatted
         )
 
-    async def _forward_to_hiring_manager(
-        self, tool_input: dict[str, Any]
-    ) -> str:
+    async def _forward_to_hiring_manager(self, tool_input: dict[str, Any]) -> str:
         """Forwards a candidate to the appropriate hiring manager.
 
         Creates a RecruiterHMMessage with the recruiter's framing and
@@ -628,9 +608,7 @@ class RecruiterAgent(BaseAgent):
             f"for {posting.title} ({msg_id})."
         )
 
-    async def _manage_candidate_communication(
-        self, tool_input: dict[str, Any]
-    ) -> str:
+    async def _manage_candidate_communication(self, tool_input: dict[str, Any]) -> str:
         """Sends a status update or rejection to a candidate.
 
         Updates the application status and creates an EventEntry that
@@ -736,7 +714,4 @@ class RecruiterAgent(BaseAgent):
             hm_id,
             posting_id,
         )
-        return (
-            f"Nudge sent to hiring manager {hm_id} "
-            f"about {posting_id} ({msg_id})."
-        )
+        return f"Nudge sent to hiring manager {hm_id} about {posting_id} ({msg_id})."

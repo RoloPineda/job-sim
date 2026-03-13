@@ -62,8 +62,7 @@ def _format_posting(posting: JobPosting, current_round: int) -> str:
     ]
     if posting.salary_range_low is not None and posting.salary_range_high is not None:
         lines.append(
-            f"  Salary: ${posting.salary_range_low:,} - "
-            f"${posting.salary_range_high:,}"
+            f"  Salary: ${posting.salary_range_low:,} - ${posting.salary_range_high:,}"
         )
     elif posting.salary_range_low is not None:
         lines.append(f"  Salary: from ${posting.salary_range_low:,}")
@@ -224,9 +223,7 @@ class JobSeekerAgent(BaseAgent):
 
         return "\n".join(sections)
 
-    async def handle_tool_call(
-        self, tool_name: str, tool_input: dict[str, Any]
-    ) -> str:
+    async def handle_tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Dispatch a tool call to the appropriate handler.
 
         Args:
@@ -246,9 +243,7 @@ class JobSeekerAgent(BaseAgent):
         if handler:
             return await handler(tool_input)
 
-        logger.info(
-            "[%s] stubbed tool called: %s", self.profile.id, tool_name
-        )
+        logger.info("[%s] stubbed tool called: %s", self.profile.id, tool_name)
         return _STUB_MESSAGE
 
     async def assess_interview(self, data: InterviewData) -> str:
@@ -333,9 +328,9 @@ class JobSeekerAgent(BaseAgent):
         min_salary = tool_input.get("min_salary")
         if min_salary is not None:
             matches = [
-                p for p in matches
-                if p.salary_range_high is not None
-                and p.salary_range_high >= min_salary
+                p
+                for p in matches
+                if p.salary_range_high is not None and p.salary_range_high >= min_salary
             ]
 
         if not matches:
@@ -412,9 +407,7 @@ class JobSeekerAgent(BaseAgent):
             return f"Posting '{posting_id}' is no longer accepting applications."
 
         resume_version_id = (
-            self.resume_versions[-1].id
-            if self.resume_versions
-            else "pre-existing"
+            self.resume_versions[-1].id if self.resume_versions else "pre-existing"
         )
 
         app_id = f"app-{uuid.uuid4().hex[:8]}"
@@ -422,7 +415,7 @@ class JobSeekerAgent(BaseAgent):
             id=app_id,
             job_seeker_id=self.profile.id,
             posting_id=posting_id,
-            recruiter_id=None, # This is saved by the engine when saving the record
+            recruiter_id=None,  # This is saved by the engine when saving the record
             resume_version_id=resume_version_id,
             round_submitted=self._state.round_number,
         )

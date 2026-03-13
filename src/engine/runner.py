@@ -85,11 +85,11 @@ class SimulationRunner:
         logger.info("Simulation %s finished", self._run_id)
 
     async def _run_interviews(
-            self,
-            job_seeker_bundles,
-            hm_bundles,
-            open_postings,
-            round_number,
+        self,
+        job_seeker_bundles,
+        hm_bundles,
+        open_postings,
+        round_number,
     ):
         """Detects and runs interviews for newly advanced applications.
 
@@ -111,16 +111,12 @@ class SimulationRunner:
             open_postings: All open postings, used to build role context.
             round_number: The current simulation round.
         """
-        pending = await self._state_manager.find_pending_interviews(
-            round_number
-        )
+        pending = await self._state_manager.find_pending_interviews(round_number)
 
         if not pending:
             return
 
-        logger.info(
-            "Round %d: %d interview(s) to conduct", round_number, len(pending)
-        )
+        logger.info("Round %d: %d interview(s) to conduct", round_number, len(pending))
 
         seeker_map = {b.profile.id: b for b in job_seeker_bundles}
         hm_map = {b.profile.id: b for b in hm_bundles}
@@ -187,13 +183,10 @@ class SimulationRunner:
                 outcome=result.outcome,
             )
 
-            await self._create_interview_events(
-                interview_info, result, round_number
-            )
+            await self._create_interview_events(interview_info, result, round_number)
 
             logger.info(
-                "Interview complete: %s interviewed %s for %s, "
-                "outcome=%s",
+                "Interview complete: %s interviewed %s for %s, outcome=%s",
                 hm_bundle.profile.name,
                 seeker_bundle.profile.name,
                 posting.title,
@@ -224,9 +217,7 @@ class SimulationRunner:
             for b in bundles
         ]
 
-        await asyncio.gather(
-            *[a.run_turn(round_number) for a in agents]
-        )
+        await asyncio.gather(*[a.run_turn(round_number) for a in agents])
 
         all_resumes = []
         all_applications = []
@@ -238,9 +229,7 @@ class SimulationRunner:
             bundles, all_resumes, all_applications, round_number
         )
 
-        await self._schedule_background_outcomes(
-            applications, round_number
-        )
+        await self._schedule_background_outcomes(applications, round_number)
 
     async def _run_recruiter_turns(
         self, bundles: list[RecruiterBundle], round_number: int
@@ -265,9 +254,7 @@ class SimulationRunner:
             for b in bundles
         ]
 
-        await asyncio.gather(
-            *[a.run_turn(round_number) for a in agents]
-        )
+        await asyncio.gather(*[a.run_turn(round_number) for a in agents])
 
         all_messages = []
         all_events = []
@@ -305,9 +292,7 @@ class SimulationRunner:
             for b in bundles
         ]
 
-        await asyncio.gather(
-            *[a.run_turn(round_number) for a in agents]
-        )
+        await asyncio.gather(*[a.run_turn(round_number) for a in agents])
 
         all_messages = []
         all_events = []
@@ -335,10 +320,8 @@ class SimulationRunner:
             applications: All applications submitted this round.
             round_number: Current round.
         """
-        background_apps = (
-            await self._state_manager.detect_background_applications(
-                applications
-            )
+        background_apps = await self._state_manager.detect_background_applications(
+            applications
         )
 
         for app, responsiveness, company_id in background_apps:
@@ -353,11 +336,10 @@ class SimulationRunner:
                 )
                 continue
 
-            base_delay, variance = (
-                await self._state_manager.load_company_response_params(
-                    company_id
-                )
-            )
+            (
+                base_delay,
+                variance,
+            ) = await self._state_manager.load_company_response_params(company_id)
             jitter = random.randint(-variance, variance)
             delay = max(1, base_delay + jitter)
 
@@ -370,9 +352,7 @@ class SimulationRunner:
                 outcome="rejected",
             )
 
-    async def _process_background_outcomes(
-        self, round_number: int
-    ) -> None:
+    async def _process_background_outcomes(self, round_number: int) -> None:
         """Fires background outcomes that are due this round.
 
         Creates rejection events for seekers. Ghosted applications
@@ -432,19 +412,19 @@ class SimulationRunner:
         tasks = []
         for b in job_seeker_bundles:
             if should_compress(b.state, self._config):
-                tasks.append(compress_history(
-                    b.state, self._config, self._client, b.profile.id
-                ))
+                tasks.append(
+                    compress_history(b.state, self._config, self._client, b.profile.id)
+                )
         for b in recruiter_bundles:
             if should_compress(b.state, self._config):
-                tasks.append(compress_history(
-                    b.state, self._config, self._client, b.profile.id
-                ))
+                tasks.append(
+                    compress_history(b.state, self._config, self._client, b.profile.id)
+                )
         for b in hm_bundles:
             if should_compress(b.state, self._config):
-                tasks.append(compress_history(
-                    b.state, self._config, self._client, b.profile.id
-                ))
+                tasks.append(
+                    compress_history(b.state, self._config, self._client, b.profile.id)
+                )
 
         if tasks:
             await asyncio.gather(*tasks)
@@ -467,33 +447,37 @@ class SimulationRunner:
         """
         all_agents: list[tuple[str, str, str, str]] = []
         for b in job_seeker_bundles:
-            all_agents.append((
-                b.profile.id,
-                b.profile.agent_type,
-                b.state.compressed_history,
-                b.profile.name,
-            ))
+            all_agents.append(
+                (
+                    b.profile.id,
+                    b.profile.agent_type,
+                    b.state.compressed_history,
+                    b.profile.name,
+                )
+            )
         for b in recruiter_bundles:
-            all_agents.append((
-                b.profile.id,
-                b.profile.agent_type,
-                b.state.compressed_history,
-                b.profile.name,
-            ))
+            all_agents.append(
+                (
+                    b.profile.id,
+                    b.profile.agent_type,
+                    b.state.compressed_history,
+                    b.profile.name,
+                )
+            )
         for b in hm_bundles:
-            all_agents.append((
-                b.profile.id,
-                b.profile.agent_type,
-                b.state.compressed_history,
-                b.profile.name,
-            ))
+            all_agents.append(
+                (
+                    b.profile.id,
+                    b.profile.agent_type,
+                    b.state.compressed_history,
+                    b.profile.name,
+                )
+            )
 
         builder = PromptBuilder(self._config)
 
         for agent_id, agent_type, context_summary, name in all_agents:
-            stmt = select(Agent).where(
-                Agent.id == StateManager._to_uuid(agent_id)
-            )
+            stmt = select(Agent).where(Agent.id == StateManager._to_uuid(agent_id))
             result = await self._session.execute(stmt)
             agent_orm = result.scalar_one_or_none()
             if not agent_orm:
@@ -551,16 +535,13 @@ class SimulationRunner:
         Returns:
             Applications with a non-None status_updated_round.
         """
-        return [
-            app for app in applications
-            if app.status_updated_round is not None
-        ]
+        return [app for app in applications if app.status_updated_round is not None]
 
     async def _create_interview_events(
-            self,
-            interview_info,
-            result,
-            round_number,
+        self,
+        interview_info,
+        result,
+        round_number,
     ):
         """Creates events so both agents see the interview in future context.
 
@@ -616,6 +597,4 @@ class SimulationRunner:
             created_at=datetime.now(timezone.utc),
         )
 
-        await self._state_manager.persist_events(
-            [candidate_event, interviewer_event]
-        )
+        await self._state_manager.persist_events([candidate_event, interviewer_event])

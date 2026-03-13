@@ -123,9 +123,7 @@ async def compress_history(
 
     user_content = ""
     if state.compressed_history:
-        user_content += (
-            f"Existing summary:\n{state.compressed_history}\n\n"
-        )
+        user_content += f"Existing summary:\n{state.compressed_history}\n\n"
     user_content += (
         f"New events to integrate:\n{formatted}\n\n"
         "Produce an updated summary that integrates the new events "

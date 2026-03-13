@@ -5,6 +5,7 @@ API-ready message structures. This module handles formatting only, all
 content generation (context building, history compression) happens
 elsewhere.
 """
+
 from anthropic.types import MessageParam
 from typing import Any, NotRequired, TypedDict, cast, Literal
 
@@ -265,7 +266,9 @@ class PromptBuilder:
                 "bringing your remaining points to a close."
             )
 
-        return MessagePayload(system=system, messages=cast(list[MessageParam], messages))
+        return MessagePayload(
+            system=system, messages=cast(list[MessageParam], messages)
+        )
 
     def _build_interview_messages(
         self,
@@ -292,7 +295,9 @@ class PromptBuilder:
         """
         raw: list[MessageParam] = [{"role": "user", "content": role_context}]
         for entry in transcript:
-            role: Literal["user", "assistant"] = "assistant" if entry["speaker"] == speaker_name else "user"
+            role: Literal["user", "assistant"] = (
+                "assistant" if entry["speaker"] == speaker_name else "user"
+            )
             raw.append({"role": role, "content": entry["content"]})
 
         messages = self._merge_consecutive_roles(raw)
@@ -322,7 +327,8 @@ class PromptBuilder:
         if isinstance(content, str):
             return content
         return "\n".join(
-            block.get("text", "") for block in content
+            block.get("text", "")
+            for block in content
             if isinstance(block, dict) and block.get("type") == "text"
         )
 

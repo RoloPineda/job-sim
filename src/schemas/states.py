@@ -63,16 +63,14 @@ class JobSeekerState(AgentState):
     target_comp_low: int = Field(ge=0)
     target_comp_high: int = Field(ge=0)
     location_flexibility: Literal["rigid", "moderate", "flexible"]
-    remote_preference: Literal[
-        "remote_only", "hybrid", "onsite", "no_preference"
-    ]
+    remote_preference: Literal["remote_only", "hybrid", "onsite", "no_preference"]
     current_resume: str | None = None
     current_pipeline: list[dict[str, Any]] = []
     total_applications: int = 0
     total_rejections: int = 0
 
     @model_validator(mode="after")
-    def validate_comp_range(self) -> "SeekerState":
+    def validate_comp_range(self) -> "JobSeekerState":
         """Ensure target_comp_low does not exceed target_comp_high."""
         if self.target_comp_low > self.target_comp_high:
             raise ValueError(

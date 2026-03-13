@@ -120,8 +120,7 @@ class InterviewOrchestrator:
         candidate_name = self._candidate.profile.name
 
         logger.info(
-            "Starting interview: %s (interviewer) <-> %s (candidate), "
-            "target %d turns",
+            "Starting interview: %s (interviewer) <-> %s (candidate), target %d turns",
             interviewer_name,
             candidate_name,
             target_turns,
@@ -137,10 +136,12 @@ class InterviewOrchestrator:
             content = await self._run_turn(
                 speaker.profile, transcript, turn_number, result
             )
-            transcript.append({
-                "speaker": speaker.profile.name,
-                "content": content,
-            })
+            transcript.append(
+                {
+                    "speaker": speaker.profile.name,
+                    "content": content,
+                }
+            )
 
             logger.debug(
                 "Turn %d/%d (%s): %d chars",
@@ -231,7 +232,9 @@ class InterviewOrchestrator:
         return _extract_text(response)
 
 
-def build_role_context(posting: JobPosting, interviewer_name: str, candidate_name: str) -> str:
+def build_role_context(
+    posting: JobPosting, interviewer_name: str, candidate_name: str
+) -> str:
     """Build the role context string for an interview.
 
     Assembles a description of the role from the posting that both
@@ -292,14 +295,12 @@ def _parse_outcome(
             if outcome is not None:
                 return outcome
             logger.warning(
-                "Unrecognized decision token '%s', defaulting "
-                "to undecided",
+                "Unrecognized decision token '%s', defaulting to undecided",
                 token,
             )
             return "undecided"
     logger.warning(
-        "No DECISION line found in interviewer assessment, "
-        "defaulting to undecided"
+        "No DECISION line found in interviewer assessment, defaulting to undecided"
     )
     return "undecided"
 
